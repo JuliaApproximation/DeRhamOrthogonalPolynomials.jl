@@ -1,0 +1,4 @@
+name = "DeRhamOrthogonalPolynomials"
+uuid = "c06ac22d-d4b2-409e-92c3-21eb83d818c2"
+version = "0.1.0"
+authors = ["Sheehan Olver <solver@mac.com>"]
