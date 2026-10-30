@@ -39,7 +39,7 @@ LazyBandedMatrices = "0.11.13"
 LinearAlgebra = "1.13.0"
 MultivariateOrthogonalPolynomials = "0.10.0"
 QuasiArrays = "0.13.14"
-SparseArrays = "1.13.0"
+SparseArrays = "<0.0.1, 1, 1.13.0"
 StaticArrays = "1.9.24"
 
 [extras]
