@@ -1,6 +1,6 @@
 name = "DeRhamOrthogonalPolynomials"
 uuid = "c06ac22d-d4b2-409e-92c3-21eb83d818c2"
-version = "0.1.0"
+version = "0.0.1"
 authors = ["Sheehan Olver <solver@mac.com>"]
 
 [deps]
@@ -41,6 +41,7 @@ MultivariateOrthogonalPolynomials = "0.10.0"
 QuasiArrays = "0.13.14"
 SparseArrays = "<0.0.1, 1, 1.13.0"
 StaticArrays = "1.9.24"
+julia = "1.10"
 
 [extras]
 FastGaussQuadrature = "442a2c76-b920-505d-bb47-c5924d526838"
