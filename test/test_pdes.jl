@@ -90,7 +90,7 @@ using DeRhamOrthogonalPolynomials, ClassicalOrthogonalPolynomials, BlockArrays, 
                     D_N = Matrix((P'curl(N))[1:n,JR])
                     M_P = (P'P)[1:n,1:n]
                     Z = zero(M_P)
-                    A_N = [-M_N D_N'; D_N Z]
+                    A_N = [-Matrix(M_N) D_N'; D_N Z]
                     Z₂ = zero(M_N)
                     Z₃ = zero(D_N)
                     B = [Z₂ Z₃'; Z₃ M_P]
@@ -161,7 +161,7 @@ using DeRhamOrthogonalPolynomials, ClassicalOrthogonalPolynomials, BlockArrays, 
             # [sum(N[𝐱,k]'N[𝐱,j] for 𝐱 in UnitDisk()) for k in axes(M_N,1),  j in axes(M_N,1)]
 
 
-            C = 2π * [ω^2*M_N+C_N    -im*ω*D          ;
+            C = 2π * [Matrix(ω^2*M_N+C_N)    -im*ω*D          ;
                                 im*ω*D'             Δ_W       ]
             @test C ≈ C'
             @test M ≈ M'
