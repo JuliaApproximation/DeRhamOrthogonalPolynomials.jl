@@ -86,7 +86,7 @@ end
 
 PeriodicCylinderVector{T}(scalar::AbstractQuasiMatrix, vector::AbstractQuasiMatrix, k) where T = PeriodicCylinderVector{T, typeof(scalar), typeof(vector)}(scalar, vector, k)
 PeriodicCylinderVector(scalar::AbstractQuasiMatrix, vector::AbstractQuasiMatrix, k) = PeriodicCylinderVector{promote_type(real(eltype(scalar)),real(eltype(eltype(vector))))}(scalar, vector, k)
-PeriodicCylinderVector(m, k, (a,b,c)) = PeriodicCylinderVector(DiskBasis(m, a), DiskVector(m, (b,c)), k)
+PeriodicCylinderVector(m, k, (a,b,c)=(0,0,0)) = PeriodicCylinderVector(DiskBasis(m, a), DiskVector(m, (b,c)), k)
 
 diskvector(P::PeriodicCylinderVector) = P.vector
 diskbasis(P::PeriodicCylinderVector) = P.scalar

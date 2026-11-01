@@ -18,7 +18,7 @@ using HarmonicOrthogonalPolynomials: sphericalharmonicnormalization
 export DiskVector, DiskZernikeWeight, DiskVectorWeight, grad, curl, rotgrad,
             DiskBasis, DiskCurlFree, DiskCoCurlFree
 export VectorJacobi, vectorjacobip, VectorJacobiWeight, UnitDisk
-export PeriodicCylinderBasis, PeriodicCylinderBubble, PeriodicCylinderVector, PeriodicCylinderNormal
+export PeriodicCylinderBasis, PeriodicCylinderVector
 export BallBasis, vectorzernike
 
 include("vectorjacobi.jl")
