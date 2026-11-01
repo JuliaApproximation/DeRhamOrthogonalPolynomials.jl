@@ -6,7 +6,7 @@ using DeRhamOrthogonalPolynomials, ClassicalOrthogonalPolynomials, StaticArrays,
         (x,y,z) = 𝐱 = SVector(0.1,0.2,0.3)
         for m = -2:2, ω = -2:2
             P = PeriodicCylinderBasis(m, ω)
-            Q = PeriodicCylinderBubble(m, ω)
+            Q = PeriodicCylinderBasis(m, ω, 1)
             W = Weighted(Q)
 
             @test P[𝐱, 1:5] ≈ DiskBasis(m)[SVector(x,y),1:5] * exp(im*ω*z)
@@ -33,12 +33,12 @@ using DeRhamOrthogonalPolynomials, ClassicalOrthogonalPolynomials, StaticArrays,
         (x,y,z) = 𝐱 = SVector(0.1,0.2,0.3)
         for m=setdiff(-1:2,0), ω = -2:1
             P = PeriodicCylinderVector(m, ω)
-            Q = PeriodicCylinderNormal(m, ω)
+            Q = PeriodicCylinderVector(m, ω, (1,0,1))
             W = Weighted(Q)
-            @test Q[𝐱,1] ≈ only(Q[𝐱,Block(1)]) ≈ Q[𝐱,Block(1)[1]] ≈ [DiskNormal(m)[SVector(x,y),1]; 0]*exp(im*ω*z)
+            @test Q[𝐱,1] ≈ only(Q[𝐱,Block(1)]) ≈ Q[𝐱,Block(1)[1]] ≈ [DiskVector(m,(0,1))[SVector(x,y),1]; 0]*exp(im*ω*z)
             @test Q[𝐱,2] ≈ only(Q[𝐱,Block(2)]) ≈ Q[𝐱,Block(2)[1]] ≈ [0,0,DiskBasis(m,1)[SVector(x,y),1]]*exp(im*ω*z)
-            @test Q[𝐱,3:4] ≈ Q[𝐱,Block(3)] ≈ [Q[𝐱,Block(3)[1]],Q[𝐱,Block(3)[2]]] ≈ [[DiskNormal(m)[SVector(x,y),2]; 0]*exp(im*ω*z),[DiskNormal(m)[SVector(x,y),3]; 0]*exp(im*ω*z)]
-            @test W[𝐱,1] ≈ only(W[𝐱,Block(1)]) ≈ W[𝐱,Block(1)[1]] ≈ [Weighted(DiskNormal(m))[SVector(x,y),1]; 0]*exp(im*ω*z)
+            @test Q[𝐱,3:4] ≈ Q[𝐱,Block(3)] ≈ [Q[𝐱,Block(3)[1]],Q[𝐱,Block(3)[2]]] ≈ [[DiskVector(m,(0,1))[SVector(x,y),2]; 0]*exp(im*ω*z),[DiskVector(m,(0,1))[SVector(x,y),3]; 0]*exp(im*ω*z)]
+            @test W[𝐱,1] ≈ only(W[𝐱,Block(1)]) ≈ W[𝐱,Block(1)[1]] ≈ [Weighted(DiskVector(m,(0,1)))[SVector(x,y),1]; 0]*exp(im*ω*z)
             @test W[𝐱,2] ≈ only(W[𝐱,Block(2)]) ≈ W[𝐱,Block(2)[1]] ≈ [0,0,Weighted(DiskBasis(m,1))[SVector(x,y),1]]*exp(im*ω*z)
 
             @test (Q \ P)[1:10,1:10]'Q[𝐱,1:10] ≈ P[𝐱,1:10]

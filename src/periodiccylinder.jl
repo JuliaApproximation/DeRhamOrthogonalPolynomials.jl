@@ -37,7 +37,7 @@ struct PeriodicCylinderBasis{T, DISK} <: Basis{Complex{T}}
 end
 PeriodicCylinderBasis{T}(basis::AbstractQuasiMatrix, k::Integer) where T = PeriodicCylinderBasis{T, typeof(basis)}(basis, k)
 PeriodicCylinderBasis(basis::AbstractQuasiMatrix, k::Integer) = PeriodicCylinderBasis{real(eltype(basis))}(basis, k)
-PeriodicCylinderBasis(m::Integer, k::Integer) = PeriodicCylinderBasis(DiskBasis(m), k)
+PeriodicCylinderBasis(m::Integer, k::Integer, a...) = PeriodicCylinderBasis(DiskBasis(m, a...), k)
 
 axes(P::PeriodicCylinderBasis{T}) where T = (Inclusion(periodiccylinder(T)), oneto(∞))
 
@@ -84,16 +84,16 @@ struct PeriodicCylinderVector{T, DISKBas, DISKVec}  <: Basis{SVector{3,Complex{T
 end
 
 
-PeriodicCylinderVector{T}(scalar, vector, k) where T = PeriodicCylinderVector{T, typeof(scalar), typeof(vector)}(scalar, vector, k)
-PeriodicCylinderVector(scalar, vector, k) = PeriodicCylinderVector{promote_type(real(eltype(scalar)),real(eltype(eltype(vector))))}(scalar, vector, k)
-PeriodicCylinderVector(m, k) = PeriodicCylinderVector(DiskBasis(m), DiskVector(m), k)
+PeriodicCylinderVector{T}(scalar::AbstractQuasiMatrix, vector::AbstractQuasiMatrix, k) where T = PeriodicCylinderVector{T, typeof(scalar), typeof(vector)}(scalar, vector, k)
+PeriodicCylinderVector(scalar::AbstractQuasiMatrix, vector::AbstractQuasiMatrix, k) = PeriodicCylinderVector{promote_type(real(eltype(scalar)),real(eltype(eltype(vector))))}(scalar, vector, k)
+PeriodicCylinderVector(m, k, (a,b,c)=(0,0,0)) = PeriodicCylinderVector(DiskBasis(m, a), DiskVector(m, (b,c)), k)
 
 diskvector(P::PeriodicCylinderVector) = P.vector
 diskbasis(P::PeriodicCylinderVector) = P.scalar
 
 orthogonalityweight(P::PeriodicCylinderVector) = PeriodicCylinderMatrixWeight(orthogonalityweight(P.vector), orthogonalityweight(P.scalar))
 
-_cylinder_vector_axes(m) = _blockinterlace_axes(axes(DiskVector(m),2), unitblocks(axes(DiskBasis(m),2)))
+_cylinder_vector_axes(m) = _blockinterlace_axes(axes(DiskVector(m),2), axes(DiskBasis(m),2))
 axes(P::PeriodicCylinderVector{T}) where {T} = (Inclusion(periodiccylinder(real(T))), _cylinder_vector_axes(P.scalar.m))
 
 ==(A::PeriodicCylinderVector, B::PeriodicCylinderVector) = A.scalar == B.scalar && A.vector == B.vector && A.k == B.k
