@@ -268,7 +268,7 @@ end
 DiskCurlFree(m) = DiskCurlFree{Float64}(m)
 DiskCoCurlFree(m) = DiskCoCurlFree{Float64}(m)
 
-axes(P::AbstractDiskHodge{T}) where T = (Inclusion(UnitDisk{T}()), oneto(∞))
+axes(P::AbstractDiskHodge{T}) where T = (Inclusion(UnitDisk{T}()), unitblocks(oneto(∞)))
 orthogonalityweight(::AbstractDiskHodge{T}) where {T} = DiskVectorWeight{T}((0,1))
 ==(A::DiskCurlFree, B::DiskCurlFree) = A.m == B.m
 ==(A::DiskCoCurlFree, B::DiskCoCurlFree) = A.m == B.m
@@ -412,7 +412,7 @@ grad(f::AbstractQuasiArray) = grad_layout(MemoryLayout(f), f)
 grad_layout(::ExpansionLayout, f) = grad(basis(f)) * coefficients(f)
 function grad(W::Weighted{<:Any,<:DiskBasis{T}}) where {T}
     @assert W.P.a == 1
-    Weighted(DiskCurlFree{T}(W.P.m)) * Diagonal(-(one(T):∞))
+    Weighted(DiskCurlFree{T}(W.P.m)) * Diagonal(unitblocks(-(one(T):∞)))
 end
 
 function grad(Z::DiskBasis{T}) where {T}

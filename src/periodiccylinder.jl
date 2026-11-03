@@ -39,7 +39,7 @@ PeriodicCylinderBasis{T}(basis::AbstractQuasiMatrix, k::Integer) where T = Perio
 PeriodicCylinderBasis(basis::AbstractQuasiMatrix, k::Integer) = PeriodicCylinderBasis{real(eltype(basis))}(basis, k)
 PeriodicCylinderBasis(m::Integer, k::Integer, a...) = PeriodicCylinderBasis(DiskBasis(m, a...), k)
 
-axes(P::PeriodicCylinderBasis{T}) where T = (Inclusion(periodiccylinder(T)), oneto(∞))
+axes(P::PeriodicCylinderBasis{T}) where T = (Inclusion(periodiccylinder(T)), axes(P.disk,2))
 
 function getindex(P::PeriodicCylinderBasis, 𝐱::SVector{3}, j::Int)
     @boundscheck checkbounds(P, 𝐱, j)

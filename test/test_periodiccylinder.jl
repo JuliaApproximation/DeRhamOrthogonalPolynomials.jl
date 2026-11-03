@@ -48,3 +48,6 @@ using DeRhamOrthogonalPolynomials, ClassicalOrthogonalPolynomials, StaticArrays,
         end
     end
 end
+
+
+# BlockVcat((grad(Q.disk).args[2]).data, Fill(im*k, (Base.OneTo(1), blockedrange(Ones{Int}(∞)) )))
