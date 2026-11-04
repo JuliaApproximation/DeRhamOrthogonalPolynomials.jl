@@ -1,4 +1,5 @@
-using DeRhamOrthogonalPolynomials, ClassicalOrthogonalPolynomials, StaticArrays, BlockArrays, Test
+using DeRhamOrthogonalPolynomials, ClassicalOrthogonalPolynomials, StaticArrays, BlockArrays, LinearAlgebra, Test
+using ContinuumArrays: basis, coefficients
 
 
 @testset "PeriodicCylinder" begin
@@ -71,5 +72,21 @@ using DeRhamOrthogonalPolynomials, ClassicalOrthogonalPolynomials, StaticArrays,
             end
             @test (∇'∇)[1:3,1:3] ≈ [sum(sum(∇[[𝐱;z],k]'∇[[𝐱;z],j] for 𝐱 in UnitDisk()) for z in 0..2π) for k=1:3, j=1:3]
         end
+    end
+
+    @testset "curl" begin
+        𝐱 = SVector(0.1,0.2,0.3)
+        for m = -1:2, ω = -2:3
+            V = PeriodicCylinderVector(m, ω, (-1,0,-1))
+            C = curl(V)
+            for n = 1:10
+                @test fd_curl(𝐱 -> PeriodicCylinderVector{eltype(𝐱)}(m, ω, (-1,0,-1))[𝐱,n], 𝐱) ≈ C[𝐱,n] atol=1E-10
+            end
+            ∇ = grad(PeriodicCylinderBasis(m, ω, -1))
+            @test basis(∇) == V
+            @test norm((coefficients(C) * coefficients(∇))[1:20,1:10]) ≤ 1E-10 # curl ∘ grad == 0
+            @test (C'C)[1:3,1:3] ≈ [sum(sum(C[[𝐱;z],k]'C[[𝐱;z],j] for 𝐱 in UnitDisk()) for z in 0..2π) for k=1:3, j=1:3]
+        end
+        @test_throws AssertionError curl(PeriodicCylinderVector(1, 1)) # 𝐮 must be in DiskVector(m, (a+1,a))
     end
 end

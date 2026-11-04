@@ -471,3 +471,21 @@ end
 
 
 rotgrad(P::DiskBasis{T}) where T = DiskCoCurlFree{T}(P.m) * (iszero(P.m) ? _BandedMatrix((1:∞)', ∞, -1, 1) : im*sign(P.m)*Eye{T}(∞))
+
+"""
+    diskrotmatrix(T, m)
+
+gives the coefficients of rotating by 90°, that is,
+`[0 -1; 1 0] * DiskVector(m, (a+1,a)) == DiskVector(m, (a,a+1)) * diskrotmatrix(T, m)`.
+"""
+function diskrotmatrix(::Type{T}, m) where T
+    ax = axes(DiskVector{T}(m), 2)
+    if iszero(m)
+        # [x,y] ↦ [-y,x] and [-y,x] ↦ -[x,y], i.e., each block is [0 -1; 1 0]
+        z, o = Zeros{T}(1,∞), Ones{T}(1,∞)
+        _BandedBlockBandedMatrix(BlockedMatrix(Vcat(vec(Vcat(z, -o))', z, vec(Vcat(o, z))'), (OneTo(3), ax)), ax, (0,0), (1,1))
+    else
+        # 𝐞_r ↦ 𝐞_θ and 𝐞_θ ↦ -𝐞_r swaps the components, matching swapping 𝐚 in vectorjacobip
+        Diagonal(Fill(-im*sign(m)*one(T), (ax,)))
+    end
+end
