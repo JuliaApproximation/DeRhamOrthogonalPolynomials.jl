@@ -1,4 +1,4 @@
-periodiccylinder(::Type{T}) where T = cartesianproduct(UnitDisk{T}(), ℝ)
+periodiccylinder(::Type{T}) where T = cartesianproduct(UnitDisk{T}(), FullSpace{T}())
 
 struct PeriodicCylinderWeight{T,WEIGHT} <: Weight{T}
     disk::WEIGHT
@@ -38,6 +38,7 @@ end
 PeriodicCylinderBasis{T}(basis::AbstractQuasiMatrix, k::Integer) where T = PeriodicCylinderBasis{T, typeof(basis)}(basis, k)
 PeriodicCylinderBasis(basis::AbstractQuasiMatrix, k::Integer) = PeriodicCylinderBasis{real(eltype(basis))}(basis, k)
 PeriodicCylinderBasis(m::Integer, k::Integer, a...) = PeriodicCylinderBasis(DiskBasis(m, a...), k)
+PeriodicCylinderBasis{T}(m::Integer, k::Integer, a...) where T = PeriodicCylinderBasis{T}(DiskBasis{T}(m, a...), k)
 
 axes(P::PeriodicCylinderBasis{T}) where T = (Inclusion(periodiccylinder(T)), axes(P.disk,2))
 
@@ -126,4 +127,16 @@ function \(A::PeriodicCylinderVector, W::Weighted{<:Any,<:PeriodicCylinderVector
     L_s = diskbasis(A) \ Weighted(diskbasis(B))
     L_v = diskvector(A) \ Weighted(diskvector(B))
     blockinterlace(L_v, unitblocks(L_s))
+end
+
+
+######
+# calculus
+######
+
+function grad(Q::PeriodicCylinderBasis)
+    (; disk, k) = Q
+    ∇ = grad(disk)
+    PeriodicCylinderVector(disk, basis(∇), k) * BlockInterlace(coefficients(∇),
+                    im*k*Eye((axes(disk,2),)); dims=1)
 end

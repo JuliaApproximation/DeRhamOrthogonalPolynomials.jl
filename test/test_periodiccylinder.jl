@@ -47,7 +47,14 @@ using DeRhamOrthogonalPolynomials, ClassicalOrthogonalPolynomials, StaticArrays,
             @test (W'W)[1:4,1:4] ≈ [sum(sum(W[SVector(x,y,z),k]'W[SVector(x,y,z),j] for (x,y) in UnitDisk()) for z in 0..2π) for k=1:4, j=1:4]
         end
     end
+
+    @testset "grad" begin
+        𝐱 = SVector(0.1,0.2,0.3)
+        for m = setdiff(-1:2,0), ω = -2:3
+            ∇ = grad(PeriodicCylinderBasis(m, ω, -1))
+            for n = 1:10
+                @test gradient(𝐱 -> PeriodicCylinderBasis{eltype(𝐱)}(m, ω, -1)[𝐱,n], 𝐱) ≈ ∇[𝐱,n]
+            end
+        end
+    end
 end
-
-
-# BlockVcat((grad(Q.disk).args[2]).data, Fill(im*k, (Base.OneTo(1), blockedrange(Ones{Int}(∞)) )))
