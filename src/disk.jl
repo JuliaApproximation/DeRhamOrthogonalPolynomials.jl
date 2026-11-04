@@ -191,7 +191,7 @@ end
 function grammatrix(P::DiskVector{T}) where T
     if P.m == 0
         if P.𝐚 == (0,0)
-            Diagonal(vec(Fill(convert(T,π)/4,2)*permutedims(weightedgrammatrix(Jacobi{T}(0,1)).diag)))
+            Diagonal(BlockedVector(vec(Fill(convert(T,π)/4,2)*permutedims(weightedgrammatrix(Jacobi{T}(0,1)).diag)), (axes(P,2),)))
         else
             a,b = P.𝐚
             P_a,P_b = Jacobi{T}(a,1),Jacobi{T}(b,1)
