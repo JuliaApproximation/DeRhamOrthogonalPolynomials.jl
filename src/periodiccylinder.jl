@@ -161,3 +161,17 @@ function curl(P::PeriodicCylinderVector{T}) where T
         BlockInterlace(BlockInterlace(im*k*R, -R*G; dims=2),
                        BlockInterlace(C, Zeros{T}((axes(C,1), axes(G,2))); dims=2); dims=1)
 end
+
+"""
+    divergence(P::PeriodicCylinderVector)
+
+represents the divergence of `[𝐮; p] * exp(im*k*z)`, that is, `(divergence(𝐮) + im*k*p) * exp(im*k*z)`.
+Supports `𝐮` in `DiskVector(m, (a,a+1))` and `p` in `DiskBasis(m, a+1)`, i.e., `PeriodicCylinderVector(m, k, (a+1,a,a+1))`,
+with the result expanded in `PeriodicCylinderBasis(m, k, a+1)`.
+"""
+function divergence(P::PeriodicCylinderVector{T}) where T
+    (; scalar, vector, k) = P
+    D = divergence(vector)
+    @assert basis(D) == scalar
+    PeriodicCylinderBasis{T}(scalar, k) * BlockInterlace(coefficients(D), im*k*Eye((axes(scalar,2),)); dims=2)
+end

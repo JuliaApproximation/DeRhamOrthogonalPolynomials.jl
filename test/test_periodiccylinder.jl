@@ -1,4 +1,4 @@
-using DeRhamOrthogonalPolynomials, ClassicalOrthogonalPolynomials, StaticArrays, BlockArrays, LinearAlgebra, Test
+using MultivariateOrthogonalPolynomials, DeRhamOrthogonalPolynomials, ClassicalOrthogonalPolynomials, StaticArrays, BlockArrays, LinearAlgebra, ContinuumArrays, Test
 using ContinuumArrays: basis, coefficients
 
 
@@ -88,5 +88,71 @@ using ContinuumArrays: basis, coefficients
             @test (C'C)[1:3,1:3] ≈ [sum(sum(C[[𝐱;z],k]'C[[𝐱;z],j] for 𝐱 in UnitDisk()) for z in 0..2π) for k=1:3, j=1:3]
         end
         @test_throws AssertionError curl(PeriodicCylinderVector(1, 1)) # 𝐮 must be in DiskVector(m, (a+1,a))
+    end
+
+    @testset "divergence" begin
+        𝐱 = SVector(0.1,0.2,0.3)
+        for m = -1:2, ω = -2:3
+            W = PeriodicCylinderVector(m, ω, (0,-1,0))
+            D = divergence(W)
+            for n = 1:10
+                @test fd_div(𝐱 -> PeriodicCylinderVector{eltype(𝐱)}(m, ω, (0,-1,0))[𝐱,n], 𝐱) ≈ D[𝐱,n] atol=1E-10
+            end
+            C = curl(PeriodicCylinderVector(m, ω, (-1,0,-1)))
+            @test basis(C) == W
+            @test norm((coefficients(D) * coefficients(C))[1:20,1:10]) ≤ 1E-10 # divergence ∘ curl == 0
+            @test (D'D)[1:3,1:3] ≈ [sum(sum(D[[𝐱;z],k]'D[[𝐱;z],j] for 𝐱 in UnitDisk()) for z in 0..2π) for k=1:3, j=1:3]
+        end
+        @test_throws AssertionError divergence(PeriodicCylinderVector(1, 1)) # 𝐮 must be in DiskVector(m, (a,a+1))
+    end
+
+    @testset "expansions" begin
+        @testset "grad" begin
+            f = ((x,y), z) -> exp(cos(z)sin(x-y^2+1))
+            M = 25 # total modes
+            Z,L = ComplexZernike(),Laurent()
+            gˣʸ, plˣʸ = ContinuumArrays.plan_grid_transform(Z, Block(M))
+            gᶻ, plᶻ = ContinuumArrays.plan_grid_transform(L, Block(M))
+            F = f.(gˣʸ, reshape(gᶻ, 1, 1, :))
+            F̂ = similar(F, ComplexF64)
+            for ℓ in axes(F,3)
+                F̂[:,:,ℓ] = (plˣʸ*F[:,:,ℓ]).matrix
+            end
+            for k in axes(F,1), j in axes(F,2)
+                F̂[k,j,:] = plᶻ * F̂[k,j,:]
+            end
+
+            evalcylinder(F̂, 𝐱, a=0) = sum(sum((m = (-1)^isodd(j) * (j ÷ 2);
+                                          ω = (-1)^isodd(ℓ) * (ℓ ÷ 2);
+                                          kr = 1:(size(F̂,1) - (abs(m)+3)÷2); # "triangle" of coefficients
+                                          fₘ = PeriodicCylinderBasis(m,ω,a)[:,kr]F̂[kr,j,ℓ];
+                                          fₘ[𝐱]) for j in axes(F̂, 2)) for ℓ in axes(F̂,3))
+
+            function lowercylinder!(F̂, a=-1)
+                for ℓ in axes(F̂, 3), j in axes(F̂, 2)
+                    m = (-1)^isodd(j) * (j ÷ 2)
+                    ω = (-1)^isodd(ℓ) * (ℓ ÷ 2)
+                    kr = 1:(size(F̂,1) - (abs(m)+3)÷2)
+                    R = ((PeriodicCylinderBasis(m,ω) \ PeriodicCylinderBasis(m,ω,a)))[kr,kr]
+                    ldiv!(R, view(F̂, kr,j,ℓ))
+                end
+                F̂
+            end
+            lowercylinder(F̂, a...) = lowercylinder!(copy(F̂), a...)
+
+            F₋ = lowercylinder(F̂)
+
+            
+            evalgradcylinder(F̂, 𝐱, a=0) = sum(sum((m = (-1)^isodd(j) * (j ÷ 2);
+            ω = (-1)^isodd(ℓ) * (ℓ ÷ 2);
+            kr = 1:(size(F̂,1) - (abs(m)+3)÷2); # "triangle" of coefficients
+            fₘ = PeriodicCylinderBasis(m,ω,a)[:,kr]F̂[kr,j,ℓ];
+            grad(fₘ)[𝐱]) for j in axes(F̂, 2)) for ℓ in axes(F̂,3))
+            
+            let 𝐱 = (x,y,z) = SVector(0.1,0.2,0.3)
+                @test evalcylinder(F̂, 𝐱) ≈ evalcylinder(F₋, 𝐱, -1) ≈ f((x,y), z)
+                @test evalgradcylinder(F₋, 𝐱, -1) ≈ evalgradcylinder(F̂, 𝐱) ≈ [exp(cos(z)sin(x-y^2+1))cos(x-y^2+1)cos(z),-2y*exp(cos(z)sin(x-y^2+1))cos(x-y^2+1)cos(z),-exp(cos(z)sin(x-y^2+1))sin(z)sin(x-y^2+1)]
+            end
+        end     
     end
 end

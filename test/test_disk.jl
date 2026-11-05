@@ -1,4 +1,5 @@
 using DeRhamOrthogonalPolynomials, ForwardDiff, Test
+using ContinuumArrays: basis
 
 @testset "Disk" begin
     @testset "DiskBasis" begin
@@ -217,6 +218,18 @@ using DeRhamOrthogonalPolynomials, ForwardDiff, Test
 
             end
         end
+    end
+
+    @testset "divergence" begin
+        𝐱 = SVector(0.1,0.2)
+        for m = -2:2, a = -1:0
+            D = divergence(DiskVector(m, (a,a+1)))
+            @test basis(D) == DiskBasis(m, a+1)
+            for n = 1:10
+                @test fd_div(𝐱 -> DiskVector{eltype(𝐱)}(m, (a,a+1))[𝐱,n], 𝐱) ≈ D[𝐱,n] atol=1E-10
+            end
+        end
+        @test_throws AssertionError divergence(DiskVector(1, (1,0)))
     end
 
     @testset "inversecurl" begin
