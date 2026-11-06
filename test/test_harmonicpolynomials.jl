@@ -3,13 +3,13 @@ using DeRhamOrthogonalPolynomials: harmonicpolynomial, vectorharmonicpolynomial,
 using ForwardDiff: derivative
 using HarmonicOrthogonalPolynomials: SphericalCoordinate
 
-laplacian(f, 𝐱) = tr(ForwardDiff.hessian(𝐲 -> real(f(𝐲)), 𝐱)) + im*tr(ForwardDiff.hessian(𝐲 -> imag(f(𝐲)), 𝐱))
+fd_laplacian(f, 𝐱) = tr(ForwardDiff.hessian(𝐲 -> real(f(𝐲)), 𝐱)) + im*tr(ForwardDiff.hessian(𝐲 -> imag(f(𝐲)), 𝐱))
 
 @testset "Harmonic Polynomials" begin
     @testset "2D" begin
         𝐱 = SVector(0.1,0.2)
         for m = -5:5
-            @test abs(laplacian(𝐱 -> harmonicpolynomial(m, 𝐱), 𝐱)) ≤ 1E-13
+            @test abs(fd_laplacian(𝐱 -> harmonicpolynomial(m, 𝐱), 𝐱)) ≤ 1E-13
         end
 
         @test isapproxdiagonal([sum(conj(harmonicpolynomial(m, 𝐱))harmonicpolynomial(ℓ, 𝐱) for 𝐱 in UnitDisk()) for m=-3:3, ℓ=-3:3])
@@ -22,7 +22,7 @@ laplacian(f, 𝐱) = tr(ForwardDiff.hessian(𝐲 -> real(f(𝐲)), 𝐱)) + im*t
     @testset "3D" begin
         𝐱 = SVector(0.1,0.2,0.3)
         for ℓ = 0:5, m = -ℓ:ℓ
-            @test abs(laplacian(𝐱 -> harmonicpolynomial(ℓ, m, 𝐱), 𝐱)) ≤ 1E-13
+            @test abs(fd_laplacian(𝐱 -> harmonicpolynomial(ℓ, m, 𝐱), 𝐱)) ≤ 1E-13
         end
 
         @test sum(sum(r^2 for r in 0.0..1) for 𝐱 in UnitSphere()) ≈ 4π/3

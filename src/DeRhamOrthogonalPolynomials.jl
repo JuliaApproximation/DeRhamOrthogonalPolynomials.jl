@@ -15,7 +15,7 @@ using LazyBandedMatrices: _blockinterlace_axes, BlockBroadcastVector
 using LinearAlgebra: norm_sqr
 using HarmonicOrthogonalPolynomials: sphericalharmonicnormalization
 
-export DiskVector, DiskZernikeWeight, DiskVectorWeight, grad, curl, rotgrad,
+export DiskVector, DiskZernikeWeight, DiskVectorWeight, grad, curl, divergence, rotgrad,
             DiskBasis, DiskCurlFree, DiskCoCurlFree
 export VectorJacobi, vectorjacobip, VectorJacobiWeight, UnitDisk
 export PeriodicCylinderBasis, PeriodicCylinderVector

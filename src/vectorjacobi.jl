@@ -191,7 +191,6 @@ function \(Q::VectorJacobi, P::VectorJacobi)
     if P.𝐚[1] + 1 == Q.𝐚[1] == Q.𝐚[2] == P.𝐚[2]
         a = P.𝐚[1]
         𝔯v = BroadcastVector(𝔯, n, a, b)
-        κ = BroadcastVector((n,b) -> (2n+(b+1))^2, n, b) # avoid bug in Julia v1.12
         _vectorjacobibanded(
             BlockHcat(unitblocks([0,0,0,one(T)/2]),
             BlockVcat(
@@ -211,7 +210,6 @@ function \(Q::VectorJacobi, P::VectorJacobi)
     elseif P.𝐚[2] + 1 == Q.𝐚[1] == Q.𝐚[2] == P.𝐚[1]
         a = P.𝐚[2]
         𝔯v = BroadcastVector(𝔯, n, a, b)
-        κ = BroadcastVector((n,b) -> (2n+(b+1))^2, n, b) # avoid bug in Julia v1.12
         _vectorjacobibanded(
             BlockHcat(unitblocks([0,0,0,one(T)/2]),
             BlockVcat(
@@ -230,7 +228,7 @@ function \(Q::VectorJacobi, P::VectorJacobi)
             )), 0, 3)
     elseif P.𝐚 == (0,0) && Q.𝐚 == (0,1)
         𝔯v = BroadcastVector(𝔯, n, b)
-        κ = BroadcastVector((n,b) -> (2n+(b+1))^2, n, b) # avoid bug in Julia v1.12
+        κ = (2n .+ (b+1)).^2
         _vectorjacobibanded(
             BlockHcat(unitblocks([0,0,0,T(2)]),
             BlockVcat(

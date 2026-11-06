@@ -10,10 +10,18 @@ function fd_curl(F, 𝐱) # g_x - f_y
     J_i = ForwardDiff.jacobian(𝐲 -> imag(F(𝐲)), 𝐱)
     J_r[2,1] - J_r[1,2] + im*(J_i[2,1] - J_i[1,2])
 end
+function fd_curl(F, 𝐱::SVector{3}) # (h_y - g_z, f_z - h_x, g_x - f_y)
+    J = ForwardDiff.jacobian(𝐲 -> real(F(𝐲)), 𝐱) + im*ForwardDiff.jacobian(𝐲 -> imag(F(𝐲)), 𝐱)
+    SVector(J[3,2] - J[2,3], J[1,3] - J[3,1], J[2,1] - J[1,2])
+end
 function fd_div(F, 𝐱) # f_x + g_y
     J_r = ForwardDiff.jacobian(𝐲 -> real(F(𝐲)), 𝐱)
     J_i = ForwardDiff.jacobian(𝐲 -> imag(F(𝐲)), 𝐱)
     J_r[1,1] + J_r[2,2] + im*(J_i[1,1] + J_i[2,2])
+end
+function fd_div(F, 𝐱::SVector{3}) # f_x + g_y + h_z
+    J = ForwardDiff.jacobian(𝐲 -> real(F(𝐲)), 𝐱) + im*ForwardDiff.jacobian(𝐲 -> imag(F(𝐲)), 𝐱)
+    tr(J)
 end
 
 

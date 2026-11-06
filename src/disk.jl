@@ -191,7 +191,7 @@ end
 function grammatrix(P::DiskVector{T}) where T
     if P.m == 0
         if P.𝐚 == (0,0)
-            Diagonal(vec(Fill(convert(T,π)/4,2)*permutedims(weightedgrammatrix(Jacobi{T}(0,1)).diag)))
+            Diagonal(BlockedVector(vec(Fill(convert(T,π)/4,2)*permutedims(weightedgrammatrix(Jacobi{T}(0,1)).diag)), (axes(P,2),)))
         else
             a,b = P.𝐚
             P_a,P_b = Jacobi{T}(a,1),Jacobi{T}(b,1)
@@ -268,7 +268,7 @@ end
 DiskCurlFree(m) = DiskCurlFree{Float64}(m)
 DiskCoCurlFree(m) = DiskCoCurlFree{Float64}(m)
 
-axes(P::AbstractDiskHodge{T}) where T = (Inclusion(UnitDisk{T}()), oneto(∞))
+axes(P::AbstractDiskHodge{T}) where T = (Inclusion(UnitDisk{T}()), unitblocks(oneto(∞)))
 orthogonalityweight(::AbstractDiskHodge{T}) where {T} = DiskVectorWeight{T}((0,1))
 ==(A::DiskCurlFree, B::DiskCurlFree) = A.m == B.m
 ==(A::DiskCoCurlFree, B::DiskCoCurlFree) = A.m == B.m
@@ -410,9 +410,13 @@ end
 
 grad(f::AbstractQuasiArray) = grad_layout(MemoryLayout(f), f)
 grad_layout(::ExpansionLayout, f) = grad(basis(f)) * coefficients(f)
+curl(f::AbstractQuasiArray) = curl_layout(MemoryLayout(f), f)
+curl_layout(::ExpansionLayout, f) = curl(basis(f)) * coefficients(f)
+divergence(f::AbstractQuasiArray) = divergence_layout(MemoryLayout(f), f)
+divergence_layout(::ExpansionLayout, f) = divergence(basis(f)) * coefficients(f)
 function grad(W::Weighted{<:Any,<:DiskBasis{T}}) where {T}
     @assert W.P.a == 1
-    Weighted(DiskCurlFree{T}(W.P.m)) * Diagonal(-(one(T):∞))
+    Weighted(DiskCurlFree{T}(W.P.m)) * Diagonal(unitblocks(-(one(T):∞)))
 end
 
 function grad(Z::DiskBasis{T}) where {T}
@@ -471,3 +475,36 @@ end
 
 
 rotgrad(P::DiskBasis{T}) where T = DiskCoCurlFree{T}(P.m) * (iszero(P.m) ? _BandedMatrix((1:∞)', ∞, -1, 1) : im*sign(P.m)*Eye{T}(∞))
+
+"""
+    diskrotmatrix(T, m)
+
+gives the coefficients of rotating by 90°, that is,
+`[0 -1; 1 0] * DiskVector(m, (a+1,a)) == DiskVector(m, (a,a+1)) * diskrotmatrix(T, m)`.
+"""
+function diskrotmatrix(::Type{T}, m) where T
+    ax = axes(DiskVector{T}(m), 2)
+    if iszero(m)
+        # [x,y] ↦ [-y,x] and [-y,x] ↦ -[x,y], i.e., each block is [0 -1; 1 0]
+        z, o = Zeros{T}(1,∞), Ones{T}(1,∞)
+        _BandedBlockBandedMatrix(BlockedMatrix(Vcat(vec(Vcat(z, -o))', z, vec(Vcat(o, z))'), (OneTo(3), ax)), ax, (0,0), (1,1))
+    else
+        # 𝐞_r ↦ 𝐞_θ and 𝐞_θ ↦ -𝐞_r swaps the components, matching swapping 𝐚 in vectorjacobip
+        Diagonal(Fill(-im*sign(m)*one(T), (ax,)))
+    end
+end
+
+"""
+    divergence(𝐏::DiskVector)
+
+represents the divergence of `𝐏 = DiskVector(m, (a,a+1))`, expanded in `DiskBasis(m, a+1)`.
+"""
+function divergence(𝐏::DiskVector{T}) where T
+    m,(a,a₂) = 𝐏.m, 𝐏.𝐚
+    @assert a₂ == a+1
+    # R*𝐐 == 𝐏*diskrotmatrix(T, m) for R = [0 -1; 1 0] and 𝐐 = DiskVector(m, (a+1,a)), where R^2 == -I means
+    # inv(diskrotmatrix(T, m)) == -diskrotmatrix(T, m). Hence as div(R*𝐮) == -curl(𝐮) we have
+    # div(𝐏) == div(R*𝐐) * inv(diskrotmatrix(T, m)) == curl(𝐐) * diskrotmatrix(T, m)
+    C = curl(DiskVector{T}(m, (a+1,a)))
+    basis(C) * (coefficients(C) * diskrotmatrix(T, m))
+end

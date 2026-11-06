@@ -1,4 +1,4 @@
-periodiccylinder(::Type{T}) where T = cartesianproduct(UnitDisk{T}(), ℝ)
+periodiccylinder(::Type{T}) where T = cartesianproduct(UnitDisk{T}(), FullSpace{T}())
 
 struct PeriodicCylinderWeight{T,WEIGHT} <: Weight{T}
     disk::WEIGHT
@@ -38,8 +38,9 @@ end
 PeriodicCylinderBasis{T}(basis::AbstractQuasiMatrix, k::Integer) where T = PeriodicCylinderBasis{T, typeof(basis)}(basis, k)
 PeriodicCylinderBasis(basis::AbstractQuasiMatrix, k::Integer) = PeriodicCylinderBasis{real(eltype(basis))}(basis, k)
 PeriodicCylinderBasis(m::Integer, k::Integer, a...) = PeriodicCylinderBasis(DiskBasis(m, a...), k)
+PeriodicCylinderBasis{T}(m::Integer, k::Integer, a...) where T = PeriodicCylinderBasis{T}(DiskBasis{T}(m, a...), k)
 
-axes(P::PeriodicCylinderBasis{T}) where T = (Inclusion(periodiccylinder(T)), oneto(∞))
+axes(P::PeriodicCylinderBasis{T}) where T = (Inclusion(periodiccylinder(T)), axes(P.disk,2))
 
 function getindex(P::PeriodicCylinderBasis, 𝐱::SVector{3}, j::Int)
     @boundscheck checkbounds(P, 𝐱, j)
@@ -87,6 +88,7 @@ end
 PeriodicCylinderVector{T}(scalar::AbstractQuasiMatrix, vector::AbstractQuasiMatrix, k) where T = PeriodicCylinderVector{T, typeof(scalar), typeof(vector)}(scalar, vector, k)
 PeriodicCylinderVector(scalar::AbstractQuasiMatrix, vector::AbstractQuasiMatrix, k) = PeriodicCylinderVector{promote_type(real(eltype(scalar)),real(eltype(eltype(vector))))}(scalar, vector, k)
 PeriodicCylinderVector(m, k, (a,b,c)=(0,0,0)) = PeriodicCylinderVector(DiskBasis(m, a), DiskVector(m, (b,c)), k)
+PeriodicCylinderVector{T}(m::Integer, k::Integer, (a,b,c)=(0,0,0)) where T = PeriodicCylinderVector{T}(DiskBasis{T}(m, a), DiskVector{T}(m, (b,c)), k)
 
 diskvector(P::PeriodicCylinderVector) = P.vector
 diskbasis(P::PeriodicCylinderVector) = P.scalar
@@ -126,4 +128,50 @@ function \(A::PeriodicCylinderVector, W::Weighted{<:Any,<:PeriodicCylinderVector
     L_s = diskbasis(A) \ Weighted(diskbasis(B))
     L_v = diskvector(A) \ Weighted(diskvector(B))
     blockinterlace(L_v, unitblocks(L_s))
+end
+
+
+######
+# calculus
+######
+
+function grad(Q::PeriodicCylinderBasis)
+    (; disk, k) = Q
+    ∇ = grad(disk)
+    PeriodicCylinderVector(disk, basis(∇), k) * BlockInterlace(coefficients(∇),
+                    im*k*Eye((axes(disk,2),)); dims=1)
+end
+
+"""
+    curl(P::PeriodicCylinderVector)
+
+represents the curl of `[𝐮; p] * exp(im*k*z)`, that is, `[im*k*R*𝐮 - R*∇p; curl(𝐮)] * exp(im*k*z)` where `R = [0 -1; 1 0]`.
+Supports `p` in `DiskBasis(m, a)` and `𝐮` in `DiskVector(m, (a+1,a))`, i.e., `PeriodicCylinderVector(m, k, (a,a+1,a))`,
+with the result expanded in `PeriodicCylinderVector(m, k, (a+1,a,a+1))`.
+"""
+function curl(P::PeriodicCylinderVector{T}) where T
+    (; scalar, vector, k) = P
+    m, a = scalar.m, scalar.a
+    ∇ = grad(scalar)
+    @assert basis(∇) == vector
+    G = coefficients(∇) # ∇p in DiskVector(m, (a+1,a))
+    C = coefficients(curl(vector)) # curl(𝐮) in DiskBasis(m, a+1)
+    R = diskrotmatrix(T, m) # R*𝐮 in DiskVector(m, (a,a+1))
+    PeriodicCylinderVector(DiskBasis{T}(m, a+1), DiskVector{T}(m, (a,a+1)), k) *
+        BlockInterlace(BlockInterlace(im*k*R, -R*G; dims=2),
+                       BlockInterlace(C, Zeros{T}((axes(C,1), axes(G,2))); dims=2); dims=1)
+end
+
+"""
+    divergence(P::PeriodicCylinderVector)
+
+represents the divergence of `[𝐮; p] * exp(im*k*z)`, that is, `(divergence(𝐮) + im*k*p) * exp(im*k*z)`.
+Supports `𝐮` in `DiskVector(m, (a,a+1))` and `p` in `DiskBasis(m, a+1)`, i.e., `PeriodicCylinderVector(m, k, (a+1,a,a+1))`,
+with the result expanded in `PeriodicCylinderBasis(m, k, a+1)`.
+"""
+function divergence(P::PeriodicCylinderVector{T}) where T
+    (; scalar, vector, k) = P
+    D = divergence(vector)
+    @assert basis(D) == scalar
+    PeriodicCylinderBasis{T}(scalar, k) * BlockInterlace(coefficients(D), im*k*Eye((axes(scalar,2),)); dims=2)
 end
