@@ -410,6 +410,10 @@ end
 
 grad(f::AbstractQuasiArray) = grad_layout(MemoryLayout(f), f)
 grad_layout(::ExpansionLayout, f) = grad(basis(f)) * coefficients(f)
+curl(f::AbstractQuasiArray) = curl_layout(MemoryLayout(f), f)
+curl_layout(::ExpansionLayout, f) = curl(basis(f)) * coefficients(f)
+divergence(f::AbstractQuasiArray) = divergence_layout(MemoryLayout(f), f)
+divergence_layout(::ExpansionLayout, f) = divergence(basis(f)) * coefficients(f)
 function grad(W::Weighted{<:Any,<:DiskBasis{T}}) where {T}
     @assert W.P.a == 1
     Weighted(DiskCurlFree{T}(W.P.m)) * Diagonal(unitblocks(-(one(T):∞)))

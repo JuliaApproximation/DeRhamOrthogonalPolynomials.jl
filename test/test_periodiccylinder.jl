@@ -153,6 +153,28 @@ using ContinuumArrays: basis, coefficients
                 @test evalcylinder(F̂, 𝐱) ≈ evalcylinder(F₋, 𝐱, -1) ≈ f((x,y), z)
                 @test evalgradcylinder(F₋, 𝐱, -1) ≈ evalgradcylinder(F̂, 𝐱) ≈ [exp(cos(z)sin(x-y^2+1))cos(x-y^2+1)cos(z),-2y*exp(cos(z)sin(x-y^2+1))cos(x-y^2+1)cos(z),-exp(cos(z)sin(x-y^2+1))sin(z)sin(x-y^2+1)]
             end
-        end     
+        end  
+        
+        @testset "curl" begin
+            # Transforms not implemented yet
+            for m = -3:3, ω = -3:3
+                c = 1:8
+                fₘ = PeriodicCylinderVector(m,ω, (-1,0,-1)) * [c; zeros(∞)]
+                let 𝐱 = SVector(0.1,0.2,0.3)
+                    @test curl(fₘ)[𝐱] ≈ fd_curl(𝐲 -> (PeriodicCylinderVector{eltype(𝐲)}(m, ω, (-1,0,-1))[:,axes(c,1)] * c)[𝐲], 𝐱)
+                end
+            end
+        end
+
+         @testset "divergence" begin
+            # Transforms not implemented yet
+            for m = -3:3, ω = -3:3
+                c = 1:8
+                fₘ = PeriodicCylinderVector(m,ω, (0,-1,0)) * [c; zeros(∞)]
+                let 𝐱 = SVector(0.1,0.2,0.3)
+                    @test divergence(fₘ)[𝐱] ≈ fd_div(𝐲 -> (PeriodicCylinderVector{eltype(𝐲)}(m, ω, (0,-1,0))[:,axes(c,1)] * c)[𝐲], 𝐱)
+                end
+            end
+        end
     end
 end
