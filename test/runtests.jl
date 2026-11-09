@@ -28,6 +28,9 @@ end
 include("test_harmonicpolynomials.jl")
 include("test_vectorjacobi.jl")
 include("test_disk.jl")
+include("test_zernike_conversion.jl")
+include("test_disk_vector_transform.jl")
+include("test_disk_matrix_transform.jl")
 include("test_ball.jl")
 include("test_pdes.jl")
 

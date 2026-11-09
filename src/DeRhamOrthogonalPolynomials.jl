@@ -1,10 +1,13 @@
 module DeRhamOrthogonalPolynomials
 
 using ClassicalOrthogonalPolynomials, QuasiArrays, LinearAlgebra, StaticArrays, BlockArrays, HarmonicOrthogonalPolynomials, MultivariateOrthogonalPolynomials, LazyArrays, FillArrays, LazyBandedMatrices, InfiniteArrays, BlockBandedMatrices, ContinuumArrays, DomainSets, Infinities, ArrayLayouts
+using MultivariateOrthogonalPolynomials: ModalTrav
+using ClassicalOrthogonalPolynomials: Clenshaw, recurrencecoefficients
+using LazyArrays: paddeddata
 
 
 using BlockArrays: block, blockindex
-import Base: getindex, axes, \, *, ==, OneTo, tail
+import Base: getindex, axes, \, *, ==, OneTo, tail, inv
 import ClassicalOrthogonalPolynomials: orthogonalityweight, Weight, jacobimatrix, weightedgrammatrix, grammatrix, HalfWeighted, transform_ldiv, pad
 using BandedMatrices: _BandedMatrix
 using InfiniteArrays: OneToInf
@@ -15,8 +18,9 @@ using LazyBandedMatrices: _blockinterlace_axes, BlockBroadcastVector
 using LinearAlgebra: norm_sqr
 using HarmonicOrthogonalPolynomials: sphericalharmonicnormalization
 
-export DiskVector, DiskZernikeWeight, DiskVectorWeight, grad, curl, divergence, rotgrad,
+export DiskVector, DiskVectorPlan, DiskVectorIPlan, disk2diskvector, diskvector2disk, ComplexZernikeITransform, DiskZernikeWeight, DiskVectorWeight, grad, curl, divergence, rotgrad,
             DiskBasis, DiskCurlFree, DiskCoCurlFree
+export DiskMatrixPlan, DiskMatrixIPlan, disk2diskmatrix, diskmatrix2disk, equivariantmultiplication
 export VectorJacobi, vectorjacobip, VectorJacobiWeight, UnitDisk
 export PeriodicCylinderBasis, PeriodicCylinderVector
 export BallBasis, vectorzernike

@@ -115,6 +115,15 @@ using ContinuumArrays: basis
                 R = Q \ P
                 @test P[𝐱,1:13] ≈ R[1:13,1:13]'Q[𝐱,1:13]
 
+                for 𝐚 in ((-1,0), (0,-1), (0,1), (1,0))
+                    S, T = DiskVector(m, 𝐚), DiskVector(m, 𝐚 .+ 1)
+                    @test S[𝐱,1:13] ≈ (T \ S)[1:13,1:13]'T[𝐱,1:13]
+                end
+                for 𝐚 in ((-1,0), (0,-1), (1,2), (2,1))
+                    S, T = DiskVector(m, (min(𝐚...), min(𝐚...))), DiskVector(m, 𝐚)
+                    @test S[𝐱,1:13] ≈ (T \ S)[1:13,1:13]'T[𝐱,1:13]
+                end
+
                 @test (N \ K)[1:11,1:5]'N[𝐱,1:11] ≈ K[𝐱,1:5]
                 @test (P \ K)[1:11,1:5]'P[𝐱,1:11] ≈ K[𝐱,1:5]
                 @test  (P \ K)[1:11,1:5] ≈ (P \ N)[1:11,1:11] * (N \K)[1:11,1:5]

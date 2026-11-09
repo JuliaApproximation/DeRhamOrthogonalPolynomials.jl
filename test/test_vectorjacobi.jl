@@ -253,6 +253,39 @@ _q2_a0(n, b, t) = -_v_vec_a0(n-1, b, t)/n - _q1_a0(n, b, t)
             end
         end
 
+        @testset "diagonal basis conversion operator: a=$a" for a in (-1, 0, 1)
+            for b in 0:4
+                P, Q = VectorJacobi((a,a), b), VectorJacobi((a+1,a+1), b)
+                R = Q \ P
+                @test istriu(R[1:11,1:11]) && iszero(triu(R[1:11,1:11], 3))
+                for t in (0.2, 0.5, 0.8)
+                    @test (Q * R)[t,1:11] ≈ P[t,1:11]
+                end
+            end
+        end
+
+        @testset "weighted lowering from (1,1) to (0,0)" begin
+            for b in 0:4
+                V, W = Weighted(VectorJacobi((0,0), b)), Weighted(VectorJacobi((1,1), b))
+                L = V \ W
+                @test istril(L[1:11,1:11]) && iszero(tril(L[1:11,1:11], -3))
+                for t in (0.2, 0.5, 0.8)
+                    @test (V * L)[t,1:11] ≈ W[t,1:11]
+                end
+            end
+        end
+
+        @testset "weighted lowering from (1,0) to (0,0)" begin
+            for b in 0:4
+                V, W = Weighted(VectorJacobi((0,0), b)), Weighted(VectorJacobi((1,0), b))
+                L = V \ W
+                @test istril(L[1:11,1:11]) && iszero(tril(L[1:11,1:11], -4))
+                for t in (0.2, 0.5, 0.8, 1.0)
+                    @test (V * L)[t,1:11] ≈ W[t,1:11]
+                end
+            end
+        end
+
         @testset "normal basis a=-1 explicit formula" begin
             for b in 0:4
                 Q = VectorJacobi((-1, 0), b)
@@ -379,6 +412,23 @@ _q2_a0(n, b, t) = -_v_vec_a0(n-1, b, t)/n - _q1_a0(n, b, t)
                     @test ε_formula ≈ ε_num atol=1e-9
                 end
             end
+
+            @testset "explicit formulas for beta_n and delta_n" begin
+                for b in 0:5, n in 1:8, t in (0.1, 0.45, 0.8, 1.0)
+                    Q0  = VectorJacobi((0,1), b)
+                    Qm1 = VectorJacobi((-1,0), b)
+                    𝔯₋ = 𝔯(n,-1,b)
+                    ζ = (n+b+1)/(2n+b+1)
+                    ε = -2n*(n+b+1)/((2n+b+2)*𝔯₋)
+                    α = -(n-1)*(n+b+1)/(n*(2n+b-1))
+                    δ = -(n+b)*𝔯(n-1,0,b)/((2n+b-1)*𝔯₋)
+                    β = -4*(n+b)*(n+b+1)*(2n+b)*(4n^2+4*(2b+1)*n+(b+1)*(3b-1))/(n*(2n+b-1)^2*(2n+b+1)*𝔯₋)
+                    @test Qm1[t, 2n+1] ≈ ζ*Q0[t, 2n+1] + ε*Q0[t, 2n] + δ*Q0[t, 2n-1]
+                    rhs = (ζ-ε)*Q0[t, 2n] + β*Q0[t, 2n-1]
+                    n ≥ 2 && (rhs += α*Q0[t, 2n-2])
+                    @test Qm1[t, 2n] ≈ rhs
+                end
+            end
         end
     end
 
@@ -403,6 +453,26 @@ _q2_a0(n, b, t) = -_v_vec_a0(n-1, b, t)/n - _q1_a0(n, b, t)
             R = P\Q
             for j = 1:10
                 @test (P\Q[:,j])[1:10] ≈ R[1:10,j]
+            end
+        end
+
+        for b = 0:3, a = -1:3, 𝐚 in ((a,a+1), (a+1,a))
+            P, Q = VectorJacobi((a,a), b), VectorJacobi(𝐚, b)
+            R = Q\P
+            n = 12
+            @test istriu(R[1:n,1:n]) && iszero(triu(R[1:n,1:n], 4))
+            for t in (0.1, 0.6, 1.0)
+                @test P[t:t,1:n] ≈ Q[t:t,1:n] * R[1:n,1:n]
+            end
+        end
+
+        for b = 0:3, a = -1:3, 𝐚 in ((a,a+1), (a+1,a))
+            P, Q = VectorJacobi(𝐚, b), VectorJacobi(𝐚 .+ 1, b)
+            R = Q\P
+            n = 12
+            @test istriu(R[1:n,1:n]) && iszero(triu(R[1:n,1:n], 3))
+            for t in (0.1, 0.6, 1.0)
+                @test P[t:t,1:n] ≈ Q[t:t,1:n] * R[1:n,1:n]
             end
         end
 
