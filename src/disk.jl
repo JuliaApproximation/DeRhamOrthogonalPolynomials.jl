@@ -58,6 +58,7 @@ function getindex(P::AbstractHyperZernike{N}, 𝐱::StaticVector{N}, j::Int) whe
 end
 
 abstract type AbstractHyperBallVector{N,T} <: Basis{SVector{N,Complex{T}}} end
+abstract type HyperBallMatrix{N,T,N²} <: Basis{SMatrix{N,N,Complex{T},N²}} end
 
 
 #####
@@ -236,7 +237,88 @@ function \(Q::DiskVector, P::DiskVector)
         VectorJacobi{T}(Q.𝐚, abs(Q.m)-1) \ VectorJacobi{T}(P.𝐚, abs(P.m)-1)
     end
 end
-    
+
+
+"""
+    DiskMatrix(m, λ=0)
+
+is the basis of matrix Zernike polynomials `Z_{mj}^{(λ),ν}` with mode `m`, which are matrix symmetry-adapted, i.e.,
+`Z[ρ*𝐱] * ρ == ρ * Z[𝐱] * exp(im*m*φ)` for a rotation `ρ` by `φ`, and orthogonal wrt `(1-r^2)^λ` and the Frobenius inner product:
+
+    Z_{mj}^{(λ),1} = P_j^{(λ,|m|-2)}(2r^2-1) * Y_m
+    Z_{mj}^{(λ),2} = P_{j-1}^{(λ,|m|)}(2r^2-1) * Σ * Y_m
+    Z_{mj}^{(λ),3} = P_{j-1}^{(λ,|m|)}(2r^2-1) * Y_m * Σ
+    Z_{mj}^{(λ),4} = P_{j-2}^{(λ,|m|+2)}(2r^2-1) * Σ * Y_m * Σ
+
+for `Σ = [x^2-y^2 2x*y; 2x*y y^2-x^2]` and `Y_m = r^(|m|-2) * exp(im*(m-2s)*θ) * [1 im*s; im*s -1]`, `s = sign(m)` (`s = 1` if `m = 0`).
+
+The blocks correspond to `j`, with each having degree `2j+|m|-2`, and contain those `ν = 1,…,4` (in order) that are polynomials:
+`ν = 1` requires `j ≥ max(0, 2-|m|)`, `ν = 2,3` require `j ≥ 1` and `ν = 4` requires `j ≥ 2`. Thus the blocks start at `j = 0` if `|m| ≥ 2`
+and at `j = 1` otherwise.
+"""
+struct DiskMatrix{T} <: HyperBallMatrix{2,T,4}
+    m::Int
+    λ::Int
+end
+
+DiskMatrix{T}(m) where T = DiskMatrix{T}(m, 0)
+DiskMatrix(m, λ...) = DiskMatrix{Float64}(m, λ...)
+
+# the last index of each block, which have sizes (1,3,4,4,…), (3,4,4,…) and (2,4,4,…) for |m| ≥ 2, |m| = 1 and m = 0
+_diskmatrixblocklasts(m) = abs(m) ≥ 2 ? Vcat(1, 4:4:∞) : (3-iszero(m)):4:∞
+
+axes(P::DiskMatrix{T}) where {T} = (Inclusion(StaticUnitBall{RadialCoordinate{T}, :closed}()), BlockedOneTo(_diskmatrixblocklasts(P.m)))
+
+==(A::DiskMatrix, B::DiskMatrix) = A.m == B.m && A.λ == B.λ
+
+orthogonalityweight(P::DiskMatrix{T}) where {T} = DiskZernikeWeight{T}(P.λ)
+
+"""
+    matrixzernike(m, j, ν, λ, 𝐱)
+
+evaluates the matrix Zernike polynomial `Z_{mj}^{(λ),ν}`, see `DiskMatrix`.
+"""
+function matrixzernike(m, j::Int, ν::Int, λ, 𝐱::StaticVector{2})
+    a = abs(m)
+    @assert 1 ≤ ν ≤ 4 && j ≥ (ν == 1 ? max(0, 2-a) : ν == 4 ? 2 : 1)
+    x,y = 𝐱
+    τ = 2norm_sqr(𝐱)-1
+    s = im*(1-2signbit(m))
+    z = x + s*y
+    if ν == 1
+        C = @SMatrix([1 s; s -1])
+        # Y_m = C * z^(a-2), where the negative powers of z cancel with the convention for P_j^(λ,-1) and P_j^(λ,-2)
+        if a ≥ 2
+            jacobip(j, λ, a-2, τ) * z^(a-2) * C
+        elseif a == 1
+            (j+λ)/j * jacobip(j-1, λ, 1, τ) * conj(z) * C
+        else
+            (j+λ-1)*(j+λ)/(j*(j-1)) * jacobip(j-2, λ, 2, τ) * conj(z)^2 * C
+        end
+    elseif ν == 2
+        jacobip(j-1, λ, a, τ) * z^a * @SMatrix([1 s; -s 1])
+    elseif ν == 3
+        jacobip(j-1, λ, a, τ) * z^a * @SMatrix([1 -s; s 1])
+    else
+        jacobip(j-2, λ, a+2, τ) * z^(a+2) * @SMatrix([1 -s; -s -1])
+    end
+end
+
+function getindex(P::DiskMatrix, 𝐱::StaticVector{2}, Jk::BlockIndex{1})
+    J,k = Int(block(Jk)), blockindex(Jk)
+    m = P.m
+    j = J - (abs(m) ≥ 2) # blocks start at j = 0 if |m| ≥ 2 and j = 1 otherwise
+    ν = k + (iszero(m) && isone(j)) # the first block for m = 0 is ν = 2,3
+    matrixzernike(m, j, ν, P.λ, 𝐱)
+end
+
+getindex(P::DiskMatrix, 𝐱::StaticVector{2}, k::Int) = P[𝐱, findblockindex(axes(P,2), k)]
+
+
+
+
+
+
 """
     equivariantjacobimatrix(Val(1), P) / equivariantjacobimatrix(Val(2), P)
 

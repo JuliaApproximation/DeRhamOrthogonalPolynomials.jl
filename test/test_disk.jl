@@ -56,6 +56,73 @@ using ContinuumArrays: basis
         end
     end
 
+    @testset "matrix" begin
+        φ = 0.1; ρ = [cos(φ) -sin(φ); sin(φ) cos(φ)]
+        𝐱 = (x,y) = SVector(0.1,0.2)
+        r,θ = norm(𝐱), atan(y,x)
+        Σ = [x^2-y^2 2x*y; 2x*y y^2-x^2]
+
+        @testset "degree 0 and 1" begin
+            @test DiskMatrix(2)[𝐱,1] ≈ [1 im; im -1]
+            @test DiskMatrix(-2)[𝐱,1] ≈ [1 -im; -im -1]
+            @test DiskMatrix(0)[𝐱,1] ≈ [1 im; -im 1]
+            @test DiskMatrix(0)[𝐱,2] ≈ [1 -im; im 1]
+            for s in (1,-1)
+                @test DiskMatrix(3s)[𝐱,1] ≈ [1 s*im; s*im -1] * (x+s*im*y)
+                @test DiskMatrix(s)[𝐱,1] ≈ [1 s*im; s*im -1] * (x-s*im*y)
+                @test DiskMatrix(s)[𝐱,2] ≈ [1 s*im; -s*im 1] * (x+s*im*y)
+                @test DiskMatrix(s)[𝐱,3] ≈ [1 -s*im; s*im 1] * (x+s*im*y)
+            end
+        end
+
+        @testset "blocks" begin
+            @test DiskMatrix(0)[𝐱,Block(1)] == DiskMatrix(0)[𝐱,1:2]
+            @test DiskMatrix(0)[𝐱,Block(2)] == DiskMatrix(0)[𝐱,3:6]
+            @test DiskMatrix(1)[𝐱,Block(1)] == DiskMatrix(1)[𝐱,1:3]
+            @test DiskMatrix(1)[𝐱,Block(2)] == DiskMatrix(1)[𝐱,4:7]
+            @test DiskMatrix(2)[𝐱,Block(1)] == DiskMatrix(2)[𝐱,1:1]
+            @test DiskMatrix(2)[𝐱,Block(2)] == DiskMatrix(2)[𝐱,2:4]
+            @test DiskMatrix(2)[𝐱,Block(3)] == DiskMatrix(2)[𝐱,5:8]
+            @test DiskMatrix(2) == DiskMatrix(2,0) ≠ DiskMatrix(2,1)
+            @test eltype(DiskMatrix(2)) == SMatrix{2,2,ComplexF64,4}
+        end
+
+        for λ = 0:2, m = -4:4
+            P = DiskMatrix(m, λ)
+            s = m ≥ 0 ? 1 : -1
+            Y = r^(abs(m)-2) * exp(im*(m-2s)*θ) * [1 s*im; s*im -1]
+            τ = 2r^2-1
+
+            @testset "definition" begin
+                for j = 2:4
+                    Z = P[𝐱,Block(j + (abs(m) ≥ 2))]
+                    if abs(m) ≥ 2
+                        @test Z[1] ≈ jacobip(j, λ, abs(m)-2, τ) * Y
+                    elseif abs(m) == 1
+                        @test Z[1] ≈ (1+τ) * (j+λ)/2j * jacobip(j-1, λ, 1, τ) * Y
+                    else
+                        @test Z[1] ≈ (1+τ)^2 * (j+λ-1)*(j+λ)/(4j*(j-1)) * jacobip(j-2, λ, 2, τ) * Y
+                    end
+                    @test Z[2] ≈ jacobip(j-1, λ, abs(m), τ) * Σ * Y
+                    @test Z[3] ≈ jacobip(j-1, λ, abs(m), τ) * Y * Σ
+                    @test Z[4] ≈ jacobip(j-2, λ, abs(m)+2, τ) * Σ * Y * Σ
+                end
+            end
+
+            @testset "symmetry-adapted" begin
+                for k = 1:10
+                    @test P[ρ * 𝐱, k] * ρ ≈ ρ * P[𝐱, k] * exp(im*m*φ)
+                end
+            end
+
+            @testset "orthogonality" begin
+                M = [sum(tr(P[𝐱,k]'P[𝐱,j]) * (1-norm(𝐱)^2)^λ for 𝐱 in UnitDisk()) for k=1:10, j=1:10]
+                @test isapproxdiagonal(M)
+                @test all(>(0.001), real(diag(M)))
+            end
+        end
+    end
+
     @testset "normal" begin
         𝐱 = (x,y) = SVector(0.1,0.2)
 

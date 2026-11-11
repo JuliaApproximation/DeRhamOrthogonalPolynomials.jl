@@ -214,4 +214,116 @@ using MultivariateOrthogonalPolynomials: ModalTrav
         @test (B'V)[1:6,1:6] ≈ [sum(B[𝐱,k]'V[𝐱,j] for 𝐱 in UnitDisk()) for k=1:6, j=1:6]
         @test (B'B)[1:6,1:6] ≈ [sum(B[𝐱,k]'B[𝐱,j] for 𝐱 in UnitDisk()) for k=1:6, j=1:6]
     end
+
+    @testset "boundary conditions" begin
+        # Weighted(DiskVector(m, (0,1))) has no tangential component on the boundary,
+        # Weighted(DiskVector(m, (1,0))) has no normal component on the boundary,
+        # Weighted(DiskVector(m, (1,1))) vanishes on the boundary.
+        # Note that column j of the coefficients holds the mode m = (-1)^iseven(j) * j ÷ 2
+
+        h = 𝐱 -> exp(𝐱[1]) * cos(𝐱[2])
+        𝐠 = 𝐱 -> SVector(cos(4𝐱[1] + 𝐱[2]), exp(𝐱[1]) * sin(𝐱[1] - 3𝐱[2]))
+        b = 𝐱 -> 1 - 𝐱[1]^2 - 𝐱[2]^2 # vanishes on the boundary
+        normal = (𝐯, 𝐲) -> dot(𝐲, 𝐯)
+        tangential = (𝐯, 𝐲) -> 𝐲[1]*𝐯[2] - 𝐲[2]*𝐯[1]
+
+        𝐲 = SVector(cos(0.7), sin(0.7))
+
+        weights = ((0, 1), (1, 0), (1, 1))
+        fields = (𝐱 -> h(𝐱)*𝐱 + b(𝐱)*𝐠(𝐱),                   # normal on the boundary
+            𝐱 -> h(𝐱)*SVector(-𝐱[2], 𝐱[1]) + b(𝐱)*𝐠(𝐱), # tangential on the boundary
+            𝐱 -> b(𝐱)*𝐠(𝐱))                             # zero on the boundary
+        conditions = ((tangential,), (normal,), (normal, tangential)) # components that vanish on the boundary
+
+        for (𝐚, 𝐟, condition) in zip(weights, fields, conditions)
+            # the transform is exact up to rounding for a field of high enough degree
+            Q = DiskVectorPlan(41, 𝐚; weighted=true)
+            @test inv(Q) * (Q * 𝐟.(grid(Q))) ≈ 𝐟.(grid(Q))
+
+            # with only a few coefficients the boundary condition still holds, unlike for the unweighted basis
+            P, P₀ = DiskVectorPlan(9, 𝐚; weighted=true), DiskVectorPlan(9)
+            G, G₀ = P * 𝐟.(grid(P)), P₀ * 𝐟.(grid(P₀))
+            𝐟ₙ = sum(Weighted(DiskVector((-1)^iseven(j) * j ÷ 2, 𝐚))[𝐲, r] * G[r, j] for r in axes(G, 1), j in axes(G, 2))
+            𝐟₀ = sum(DiskVector((-1)^iseven(j) * j ÷ 2)[𝐲, r] * G₀[r, j] for r in axes(G₀, 1), j in axes(G₀, 2))
+            for c in condition
+                @test abs(c(𝐟ₙ, 𝐲)) ≤ 1e-14
+                @test abs(c(𝐟₀, 𝐲)) > 1e-5
+            end
+        end
+    end
+
+    @testset "boundary values" begin
+        # The boundary values of a vector field can be read off its coefficients in the bases with a = -1.
+        M = 40 # total degree
+        # column j of the coefficients holds the mode m = (-1)^iseven(j) * j ÷ 2
+
+        𝐟 = 𝐱 -> SVector(cos(4𝐱[1] + 𝐱[2]), exp(𝐱[1]) * sin(𝐱[1] - 3𝐱[2]))
+        f_r = θ -> (𝐲=SVector(cos(θ), sin(θ)); dot(𝐲, 𝐟(𝐲)))               # normal component on the boundary
+        f_θ = θ -> (𝐲=SVector(cos(θ), sin(θ)); 𝐲[1]*𝐟(𝐲)[2] - 𝐲[2]*𝐟(𝐲)[1]) # tangential component on the boundary
+        θ = range(0, 2π; length=97)
+
+        # Only the first two elements of DiskVector(m, (-1,-1)) are nonzero on the boundary. For m ≠ 0 they are exp(im*m*θ)
+        # times (1, im*sign(m)) and (1, -im*sign(m)) in polar components, and for m = 0 they are 𝐞_r and 𝐞_θ.
+        P = DiskVectorPlan(M+1, -1)
+        G = P * 𝐟.(grid(P))
+        u_r = θ -> sum((m=(-1)^iseven(j) * j ÷ 2; (iszero(m) ? G[1, j] : G[1, j] + G[2, j]) * cis(m*θ)) for j in axes(G, 2))
+        u_θ = θ -> sum((m=(-1)^iseven(j) * j ÷ 2; (iszero(m) ? G[2, j] : im*sign(m)*(G[1, j] - G[2, j])) * cis(m*θ)) for j in axes(G, 2))
+        @test u_r.(θ) ≈ f_r.(θ)
+        @test u_θ.(θ) ≈ f_θ.(θ)
+
+        # so a field that vanishes on the boundary has no coefficients in the first two rows
+        @test norm((P*[(1-𝐱[1]^2-𝐱[2]^2)*𝐟(𝐱) for 𝐱 in grid(P)])[1:2, :]) ≤ 1e-13
+
+        # Only the first element of DiskVector(m, (-1,0)) has a normal component on the boundary, and only the first
+        # (the second for m = 0) of DiskVector(m, (0,-1)) has a tangential one.
+        G_n = DiskVectorPlan(M+1, (-1, 0)) * 𝐟.(grid(P))
+        G_t = DiskVectorPlan(M+1, (0, -1)) * 𝐟.(grid(P))
+        # the normal and tangential components on the boundary, each from a single row
+        n_r = θ -> sum((m=(-1)^iseven(j) * j ÷ 2; (iszero(m) ? G_n[1, j] : G_n[1, j]/2) * cis(m*θ)) for j in axes(G_n, 2))
+        t_θ = θ -> sum((m=(-1)^iseven(j) * j ÷ 2; (iszero(m) ? G_t[2, j] : im*sign(m)*G_t[1, j]/2) * cis(m*θ)) for j in axes(G_t, 2))
+        @test n_r.(θ) ≈ f_r.(θ)
+        @test t_θ.(θ) ≈ f_θ.(θ)
+    end
+
+    @testset "derivatives" begin
+        # grad and curl act mode by mode, so the coefficients of the derivatives follow from those of the field:
+        #
+        #   grad: DiskBasis(m) → DiskVector(m, (1,0)),   curl: DiskVector(m, (1,0)) → DiskBasis(m, 1)
+
+        N = 41 # total degree N-1
+        # column j of the coefficients holds the mode m = (-1)^iseven(j) * j ÷ 2
+
+        u = 𝐱 -> exp(𝐱[1]) * sin(2𝐱[2]) + cos(3𝐱[1]*𝐱[2])
+        ∇u = 𝐱 -> SVector(exp(𝐱[1]) * sin(2𝐱[2]) - 3𝐱[2] * sin(3𝐱[1]*𝐱[2]), 2exp(𝐱[1]) * cos(2𝐱[2]) - 3𝐱[1] * sin(3𝐱[1]*𝐱[2]))
+        𝐟 = 𝐱 -> SVector(cos(4𝐱[1] + 𝐱[2]), exp(𝐱[1]) * sin(𝐱[1] - 3𝐱[2]))
+        curl𝐟 = 𝐱 -> exp(𝐱[1]) * (sin(𝐱[1] - 3𝐱[2]) + cos(𝐱[1] - 3𝐱[2])) + sin(4𝐱[1] + 𝐱[2])
+
+        # grad: the scalar transform gives the coefficients of u in DiskBasis(m)
+        S = plan_transform(ComplexZernike{ComplexF64}(), (Block(N),))
+        C = (S * u.(grid(ComplexZernike{ComplexF64}(), Block(N)))).matrix
+        n = size(C,1)
+        G = zeros(ComplexF64, 2n+2, size(C,2))
+        for j in axes(C,2) # Put coefficients of gradu into G
+            G[:,j] = coefficients(grad(DiskBasis((-1)^iseven(j) * j ÷ 2)))[1:2n+2, 1:n] * C[:,j]
+        end
+        Pⁱ = DiskVectorIPlan(N+2, (1,0)) # evaluates the coefficients on a grid
+        @test Pⁱ * G ≈ ∇u.(grid(Pⁱ))
+
+        # curl: the vector transform gives the coefficients of 𝐟 in DiskVector(m, (1,0))
+        P = DiskVectorPlan(N, (1,0))
+        F = P * 𝐟.(grid(P))
+        H = zeros(ComplexF64, size(F,1) ÷ 2 + 1, size(F,2))
+        for j in axes(F,2) # Put coefficients of curl𝐟 into H
+            H[:,j] = coefficients(curl(DiskVector((-1)^iseven(j) * j ÷ 2, (1,0))))[axes(H,1), axes(F,1)] * F[:,j]
+        end
+        Sⁱ = ComplexZernikeITransform(N+2, 1) # evaluates the coefficients in DiskBasis(m, 1) on a grid
+        @test Sⁱ * H ≈ curl𝐟.(grid(Sⁱ))
+
+        # and curl(grad(u)) == 0 holds exactly for the coefficient matrices
+        for m in -3:3
+            D = coefficients(grad(DiskBasis(m)))[1:2n+2, 1:n]
+            K = coefficients(curl(DiskVector(m, (1,0))))[1:n+1, 1:2n+2]
+            @test norm(K * D) ≤ 1e-12 * norm(D)
+        end
+    end
 end
