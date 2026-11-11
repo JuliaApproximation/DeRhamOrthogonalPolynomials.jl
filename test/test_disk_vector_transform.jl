@@ -3,6 +3,19 @@ using DeRhamOrthogonalPolynomials: _complexzernikemode, _complexzernikecolumn, _
 using MultivariateOrthogonalPolynomials: ModalTrav
 
 @testset "DiskVector transform" begin
+    @testset "basic usage" begin
+        𝐟 = splat((x,y) -> SVector(exp(x*sin(y+1)), cos(exp(x)*(y+2)-1)))
+        for N = 20:25, 𝐚 in ((0,0), (-1,0), (1,0), (0,-1), (0,1))
+            Pl = DiskVectorPlan(N, 𝐚)
+            g = grid(Pl)
+            F = Pl * 𝐟.(g)
+            𝐱 = SVector(0.1,0.2)
+            kr,jr = axes(F)
+            @test sum((DiskVector((-1)^iseven(j) * j ÷ 2, 𝐚)[:,kr]F[:,j])[𝐱]
+                for j in axes(F,2)) ≈ 𝐟(𝐱)
+        end
+    end
+
     @testset "ComplexZernike column ordering" begin
         @test [_complexzernikemode(c) for c in 1:7] == [0, -1, 1, -2, 2, -3, 3]
         @test all(_complexzernikecolumn(_complexzernikemode(c)) == c for c in 1:41)
@@ -25,7 +38,7 @@ using MultivariateOrthogonalPolynomials: ModalTrav
         for m in -N:N, r in 1:2N
             _diskvectordegree(m, r) ≤ N-1 || continue
             V = DiskVector(m, 𝐚)
-            G = P * [V[x, r] for x in 𝐱]
+            G = P * V[𝐱, r]
             E = zeros(ComplexF64, size(G))
             E[r, _complexzernikecolumn(m)] = 1
             @test G ≈ E atol=1e-12
