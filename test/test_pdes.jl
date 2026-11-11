@@ -1,7 +1,89 @@
-using DeRhamOrthogonalPolynomials, ClassicalOrthogonalPolynomials, BlockArrays, SpecialFunctions, FastGaussQuadrature, StaticArrays, BlockBandedMatrices, BandedMatrices, SparseArrays, Test
+using DeRhamOrthogonalPolynomials, ClassicalOrthogonalPolynomials, MultivariateOrthogonalPolynomials, BlockArrays, SpecialFunctions, FastGaussQuadrature, StaticArrays, BlockBandedMatrices, BandedMatrices, SparseArrays, LinearAlgebra, ForwardDiff, Test
+using ContinuumArrays: grid
 
 @testset "PDEs" begin
     @testset "Disk" begin
+        @testset "load matrix: m=$m" for m in -3:3
+            W = Weighted(DiskBasis(m,1))
+            P = DiskBasis(m)
+            @test (W'P)[1:6,1:6] ≈ [sum(W[𝐱,k]'P[𝐱,j] for 𝐱 in UnitDisk()) for k=1:6, j=1:6]
+        end
+
+        @testset "Sturm–Liouville" begin
+            ρ = θ -> @SMatrix [cos(θ) -sin(θ); sin(θ) cos(θ)] # rotation by θ
+            Σ = 𝐱 -> @SMatrix [𝐱[1]^2-𝐱[2]^2 2𝐱[1]*𝐱[2]; 2𝐱[1]*𝐱[2] 𝐱[2]^2-𝐱[1]^2]
+            A = 𝐱 -> (t = sum(abs2,𝐱); (2+exp(t))*I + cos(3t)/2*ρ(π/2) + sin(2t)/2*Σ(𝐱) + ρ(π/2)*Σ(𝐱)/(2+t))
+            P = DiskMatrixPlan(41)
+            g = P * [A(SVector(𝐱[1],𝐱[2])) for 𝐱 in grid(P)]
+
+            @testset "stiffness matrix: m=$m" for m in -2:2
+                W = Weighted(DiskBasis(m,1))
+                V = DiskVector(m)
+                D = V \ grad(W)
+                G = grammatrix(V)
+                @test (D'*G*equivariantmultiplication(V, g)*D)[1:5,1:5] ≈ [sum(grad(W)[𝐱,k]'*(A(𝐱)*grad(W)[𝐱,j]) for 𝐱 in UnitDisk()) for k=1:5, j=1:5]
+                @test (D'*G*equivariantmultiplication(V, [1.0])*D)[1:5,1:5] ≈ (grad(W)'grad(W))[1:5,1:5]
+            end
+
+            @testset "manufactured solution" begin
+                u = 𝐱 -> (1-sum(abs2,𝐱))*exp(𝐱[1])*cos(2𝐱[2]+1)
+                f = 𝐱 -> -tr(ForwardDiff.jacobian(𝐲 -> A(𝐲)*ForwardDiff.gradient(u,𝐲), 𝐱))
+                M = 30
+                F = (ComplexZernike()[:,Block.(Base.OneTo(M+1))] \ [f(SVector(x,y)) for (x,y) in UnitDisk()]).matrix
+                n = size(F,1)
+                U = zeros(ComplexF64, n, 2M+1)
+                for j = 1:2M+1
+                    m = (-1)^iseven(j) * j ÷ 2
+                    W = Weighted(DiskBasis(m,1))
+                    V = DiskVector(m)
+                    D = V \ grad(W)
+                    S = (D'*grammatrix(V)*equivariantmultiplication(V, g)*D)[1:n,1:n]
+                    U[:,j] = S \ ((W'DiskBasis(m))[1:n,1:n] * F[:,j])
+                end
+                for 𝐱 in (SVector(0.1,0.2), SVector(-0.5,0.3), SVector(0.0,0.0), SVector(0.3,-0.6), SVector(0.7,0.7))
+                    @test sum((m = (-1)^iseven(j) * j ÷ 2; transpose(Weighted(DiskBasis(m,1))[𝐱,1:n])U[:,j]) for j = 1:2M+1) ≈ u(𝐱) atol=1e-13
+                end
+            end
+
+            @testset "Neumann" begin
+                @testset "stiffness matrix: m=$m" for m in -2:2
+                    Q = DiskBasis(m, -1)
+                    V = DiskVector(m)
+                    D = V \ grad(Q)
+                    G = grammatrix(V)
+                    @test (D'*G*equivariantmultiplication(V, g)*D)[1:5,1:5] ≈ [sum(grad(Q)[𝐱,k]'*(A(𝐱)*grad(Q)[𝐱,j]) for 𝐱 in UnitDisk()) for k=1:5, j=1:5]
+                    @test (D'*G*equivariantmultiplication(V, [1.0])*D)[1:5,1:5] ≈ (grad(Q)'grad(Q))[1:5,1:5]
+                end
+
+                @testset "manufactured solution" begin
+                    # on the boundary 𝐱'A∇u = (α+β)*∂u/∂r + (γ-δ)*∂u/∂θ, which vanishes for each term of u
+                    a, c = 2 + exp(1) + sin(2)/2, 1/3 - cos(3)/2
+                    κ = (1 + im*c/a)/2
+                    u = 𝐱 -> (t = sum(abs2,𝐱); cos(π*t) + (1-t)^2*exp(𝐱[1])*cos(2𝐱[2]+1) + (𝐱[1]+im*𝐱[2])*(1 + κ*(1-t)))
+                    f = 𝐱 -> -tr(ForwardDiff.jacobian(𝐲 -> A(𝐲)*ForwardDiff.gradient(𝐳 -> real(u(𝐳)), 𝐲), 𝐱)) -
+                            im*tr(ForwardDiff.jacobian(𝐲 -> A(𝐲)*ForwardDiff.gradient(𝐳 -> imag(u(𝐳)), 𝐲), 𝐱))
+                    M = 36
+                    F = (ComplexZernike()[:,Block.(Base.OneTo(M+1))] \ [f(SVector(x,y)) for (x,y) in UnitDisk()]).matrix
+                    n = size(F,1)
+                    U = zeros(ComplexF64, n, 2M+1)
+                    for j = 1:2M+1
+                        m = (-1)^iseven(j) * j ÷ 2
+                        Q = DiskBasis(m, -1)
+                        V = DiskVector(m)
+                        D = V \ grad(Q)
+                        kr = (1+iszero(m)):n # the constant is in the kernel
+                        S = (D'*grammatrix(V)*equivariantmultiplication(V, g)*D)[kr,kr]
+                        U[kr,j] = S \ ((Q'DiskBasis(m))[kr,1:n] * F[:,j])
+                    end
+                    uₙ = 𝐱 -> sum((m = (-1)^iseven(j) * j ÷ 2; transpose(DiskBasis(m,-1)[𝐱,1:n])U[:,j]) for j = 1:2M+1)
+                    𝐨 = SVector(0.0,0.0)
+                    for 𝐱 in (SVector(0.1,0.2), SVector(-0.5,0.3), SVector(0.3,-0.6), SVector(0.7,0.7), SVector(1.0,0.0))
+                        @test uₙ(𝐱) - uₙ(𝐨) ≈ u(𝐱) - u(𝐨) atol=1e-13
+                    end
+                end
+            end
+        end
+
         @testset "Laplace eigenvalues" begin
             @testset "Dirichlet" begin
                 @testset "eigenvalue" begin

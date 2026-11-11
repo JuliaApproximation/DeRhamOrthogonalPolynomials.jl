@@ -153,6 +153,29 @@ function \(W_P::Weighted{<:Any,<:VectorJacobi}, W::Weighted{<:Any,<:VectorJacobi
     b = P.b
     @assert P.𝐚 == (0,0)
     @assert b == W.P.b
+    if W.P.𝐚 == (1,1)
+        # (1-t) * P_n^(1,b) == (n+1)/(2n+b+2) * (P_n^(0,b) - P_{n+1}^(0,b)), and the same with b+2 in place of b for type-2
+        T = real(eltype(promote_type(eltype(P), eltype(W))))
+        n = 1:∞
+        return _vectorjacobibanded(
+            BlockHcat(unitblocks([one(T)/(b+2), 0, -one(T)/(b+2)]),
+            BlockVcat(
+            BlockBroadcastVector{T}(vcat,
+                unitblocks(n ./ (2n .+ (b+2))),
+                unitblocks((n .+ 1) ./ (2n .+ (b+2))))',
+            BlockBroadcastVector{T}(vcat,
+                unitblocks(Zeros{T}(∞)),
+                unitblocks(Zeros{T}(∞)))',
+            BlockBroadcastVector{T}(vcat,
+                unitblocks(-n ./ (2n .+ (b+2))),
+                unitblocks(-(n .+ 1) ./ (2n .+ (b+2))))'
+            )), 2, 0)
+    end
+    if W.P.𝐚 == (1,0)
+        # ρ(π/2)*S, S = diag(1,-1), swaps the components: diag(1-t,1)*ρ(π/2)*S*𝐪 == ρ(π/2)*S*diag(1,1-t)*𝐪, and ρ(π/2)*S*𝐩 == ±𝐩 for type-1 and type-2
+        T = real(eltype(promote_type(eltype(P), eltype(W))))
+        return Diagonal(fourierblockinterlace(Ones{T}(∞), -Ones{T}(∞))) * (W_P \ Weighted(VectorJacobi{T}((0,1), b)))
+    end
     @assert W.P.𝐚 == (0,1)
 
     #  W * 𝐩(m,j,τ) == 2(j+1) / (2j+m+1) * 𝐏(m,j,τ) + (j+1)*(j+m+1) / ((2j+m+1)*(2j+m+2)) * 𝐐(m,j,τ) - 2 * (j+1)^2/((2j+m+1)*(2j+m+2)) * 𝐏(m,j+1,τ)
@@ -244,6 +267,58 @@ function \(Q::VectorJacobi, P::VectorJacobi)
             BlockBroadcastVector{T}(vcat,
                 unitblocks(n .* 𝔯v ./ (2 * κ .* (2n.+(b+2)))),
                 unitblocks(2*(n.+(b+1)) ./ (2n .+ (b+1)) ))'
+            )), 0, 3)
+    elseif P.𝐚[1] + 1 == Q.𝐚[1] == Q.𝐚[2] == P.𝐚[2] + 1
+        # as Jacobi(a,b) and Jacobi(a,b+2): (2n+a+b+1) * P_n^(a,b) == (n+a+b+1) * P_n^(a+1,b) - (n+b) * P_{n-1}^(a+1,b)
+        a = P.𝐚[1]
+        _vectorjacobibanded(
+            BlockHcat(unitblocks([0,0,one(T)]),
+            BlockVcat(
+            BlockBroadcastVector{T}(vcat,
+                unitblocks(-(n .+ (b+1)) ./ (2n .+ (a+b+1))),
+                unitblocks(-(n .+ b) ./ (2n .+ (a+b+1))))',
+            BlockBroadcastVector{T}(vcat,
+                unitblocks(Zeros{T}(∞)),
+                unitblocks(Zeros{T}(∞)))',
+            BlockBroadcastVector{T}(vcat,
+                unitblocks((n .+ (a+b+2)) ./ (2n .+ (a+b+1))),
+                unitblocks((n .+ (a+b+1)) ./ (2n .+ (a+b+1))))'
+            )), 0, 2)
+    elseif Q.𝐚 == P.𝐚 .+ 1 && abs(P.𝐚[1] - P.𝐚[2]) == 1
+        # (a,a+1) to (a+1,a+2), the same for the components swapped
+        a = min(P.𝐚...)
+        _vectorjacobibanded(
+            BlockHcat(unitblocks([0,0,one(T)]),
+            BlockVcat(
+            BlockBroadcastVector{T}(vcat,
+                unitblocks(BroadcastVector((n,a,b) -> -(n-1)/n * (n+b+1)/(2n+a+b), n, a, b)),
+                unitblocks(BroadcastVector((n,a,b) -> -(n+b)/(2n+a+b) * 𝔯(n-1,a+1,b)/𝔯(n,a,b), n, a, b)))',
+            BlockBroadcastVector{T}(vcat,
+                unitblocks(BroadcastVector((n,a,b) -> -4*(n+b)/n * (n+b+1)/(2n+a+b) * (2n+a+b+1)/(2n+2a+b+1) * (4n^2+4*(2a+2b+3)*n+(a+b+2)*(4a+3b+3))/𝔯(n,a,b)/(2n+2a+b+3), n, a, b)),
+                unitblocks(BroadcastVector((n,a,b) -> -2n*(n+a+b+2)/(2n+a+b+2) * (2n+2a+b+3)/(2n+a+b+3)/𝔯(n,a,b), n, a, b)))',
+            BlockBroadcastVector{T}(vcat,
+                unitblocks(BroadcastVector((n,a,b) -> (2n+a+b+1)/(2n+a+b+2) * (n+a+b+2)/(2n+a+b+3) * 𝔯(n,a+1,b)/𝔯(n,a,b), n, a, b)),
+                unitblocks(BroadcastVector((n,a,b) -> (n+a+b+2)/(2n+a+b+2), n, a, b)))'
+            )), 0, 2)
+    elseif P.𝐚[1] == P.𝐚[2] ≥ -1 && Q.𝐚 ∈ ((P.𝐚[1],P.𝐚[1]+1), (P.𝐚[1]+1,P.𝐚[1]))
+        # (a,a) to (a,a+1), and to (a+1,a) with the opposite sign for type-2
+        a = P.𝐚[1]
+        s = Q.𝐚[1] > Q.𝐚[2] ? -1 : 1
+        _vectorjacobibanded(
+            BlockHcat(unitblocks([0,0,0,T(2)]),
+            BlockVcat(
+            BlockBroadcastVector{T}(vcat,
+                unitblocks(Zeros{T}(∞)),
+                unitblocks(BroadcastVector((n,a,b) -> n == 1 ? 0.0 : (n-1)*(n+a)/(2n+a+b-1) * (2n+2a+b-1)/(2*(2n+a+b)*(2n+a+b+1)), n, a, b)))',
+            BlockBroadcastVector{T}(vcat,
+                unitblocks(BroadcastVector((n,a,b,s) -> n == 1 ? 0.0 : -s*(n-1)*(n+b+1)/(2n+a+b-1) * (2n+2a+b-1)/(2*(2n+a+b)*(2n+a+b+1)), n, a, b, s)),
+                unitblocks(BroadcastVector((n,a,b) -> -2*(n+a)*(n+b)/((2n+a+b+1)*(2n+2a+b+1)), n, a, b)))',
+            BlockBroadcastVector{T}(vcat,
+                unitblocks(BroadcastVector((n,a,b,s) -> 2s*(n+b)*(n+b+1)/((2n+a+b+1)*(2n+2a+b+1)), n, a, b, s)),
+                unitblocks(BroadcastVector((n,a,b) -> n*(n+a+b+1)/(2n+a+b+1) * (6n+4a+3b+5)/(2*(2n+a+b+1)*(2n+a+b+2)), n, a, b)))',
+            BlockBroadcastVector{T}(vcat,
+                unitblocks(BroadcastVector((n,a,b,s) -> s*n/(2n+a+b+1) * 𝔯(n,a,b)/(2*(2n+a+b+1)*(2n+a+b+2)), n, a, b, s)),
+                unitblocks(BroadcastVector((n,a,b) -> 2*(n+a+b+1)/(2n+a+b+1), n, a, b)))'
             )), 0, 3)
     else
         error("Not implemented for $Q \\ $P")
