@@ -1,4 +1,10 @@
+name = "DeRhamExamples"
+uuid = "8b6bf5a0-7030-49a0-9078-1fae51eb0594"
+version = "0.1.0"
+authors = ["Sheehan Olver <solver@mac.com>"]
+
 [deps]
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 ClassicalOrthogonalPolynomials = "b30e2e7b-c4ee-47da-9d5f-2c5c27239acd"
 ContinuumArrays = "7ae1f121-cc2c-504b-ac30-9b923412ae5c"
 DeRhamOrthogonalPolynomials = "c06ac22d-d4b2-409e-92c3-21eb83d818c2"
@@ -10,3 +16,6 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [sources]
 DeRhamOrthogonalPolynomials = {path = ".."}
+
+[compat]
+CairoMakie = "0.15.17"

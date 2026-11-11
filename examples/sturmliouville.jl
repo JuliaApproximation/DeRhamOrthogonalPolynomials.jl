@@ -1,4 +1,4 @@
-using DeRhamOrthogonalPolynomials, MultivariateOrthogonalPolynomials, StaticArrays, LinearAlgebra, ForwardDiff, Test
+using DeRhamOrthogonalPolynomials, MultivariateOrthogonalPolynomials, StaticArrays, LinearAlgebra, ForwardDiff, DeRhamExamples, Test
 using ClassicalOrthogonalPolynomials: grammatrix
 using ContinuumArrays: grid
 
@@ -15,6 +15,8 @@ using ContinuumArrays: grid
 ρ = θ -> @SMatrix [cos(θ) -sin(θ); sin(θ) cos(θ)] # rotation by θ
 Σ = 𝐱 -> @SMatrix [𝐱[1]^2-𝐱[2]^2 2𝐱[1]*𝐱[2]; 2𝐱[1]*𝐱[2] 𝐱[2]^2-𝐱[1]^2]
 A = 𝐱 -> (t = sum(abs2,𝐱); (2+exp(t))*I + cos(3t)/2*ρ(π/2) + sin(2t)/2*Σ(𝐱) + ρ(π/2)*Σ(𝐱)/(2+t))
+symdiskplot((x,y) -> A((x,y)))  # visualise the matrix field
+
 Pₐ = DiskMatrixPlan(41) # exact up to degree 40
 g = Pₐ * [A(SVector(𝐱[1],𝐱[2])) for 𝐱 in grid(Pₐ)] # coefficients of α, δ, β, γ
 
