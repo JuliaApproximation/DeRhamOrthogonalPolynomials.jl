@@ -29,5 +29,6 @@ include("vectorjacobi.jl")
 include("disk.jl")
 include("ball.jl")
 include("periodiccylinder.jl")
+include("transforms.jl")
 
 end # module DeRhamOrthogonalPolynomials
