@@ -95,8 +95,7 @@ diskbasis(P::PeriodicCylinderVector) = P.scalar
 
 orthogonalityweight(P::PeriodicCylinderVector) = PeriodicCylinderMatrixWeight(orthogonalityweight(P.vector), orthogonalityweight(P.scalar))
 
-_cylinder_vector_axes(m) = _blockinterlace_axes(axes(DiskVector(m),2), axes(DiskBasis(m),2))
-axes(P::PeriodicCylinderVector{T}) where {T} = (Inclusion(periodiccylinder(real(T))), _cylinder_vector_axes(P.scalar.m))
+axes(P::PeriodicCylinderVector{T}) where {T} = (Inclusion(periodiccylinder(real(T))), _blockinterlace_axes(axes(P.vector,2), axes(P.scalar, 2)))
 
 ==(A::PeriodicCylinderVector, B::PeriodicCylinderVector) = A.scalar == B.scalar && A.vector == B.vector && A.k == B.k
 getindex(P::PeriodicCylinderVector, 𝐱::SVector{3}, j::Int) = P[𝐱, findblockindex(axes(P,2), j)]
@@ -138,10 +137,11 @@ end
 function grad(Q::PeriodicCylinderBasis{T}) where T
     (; disk, k) = Q
     (; m, a) = disk
-    # ∇p in DiskVector(m, (a+1,a))
-    PeriodicCylinderVector(disk, DiskVector{T}(m, (a+1,a)), k) * BlockInterlace(
-                    DiskVector{T}(m, (a+1,a)) \ grad(disk),
-                    im*k*Eye((axes(disk,2),)); dims=1)
+    ∇p = grad(disk)
+    vector = basis(∇p)
+    PeriodicCylinderVector(disk, vector, k) * BlockInterlace(
+                   vector \ ∇p,
+                    im*k*Eye{T}((axes(disk,2),)); dims=1)
 end
 
 """
