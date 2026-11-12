@@ -165,8 +165,8 @@ axes(P::DiskVector{T}) where {T} = (Inclusion(StaticUnitBall{RadialCoordinate{T}
 
 ==(A::DiskVector, B::DiskVector) = A.m == B.m && A.𝐚 == B.𝐚
 getindex(P::DiskVector, 𝐱::StaticVector{2}, j::Int) = P[𝐱, Block((j+1+!iszero(P.m))÷2)[min(j,mod(j-iszero(P.m),2)+1)]]
-==(A::Weighted{<:Any,<:DiskVector}, B::DiskVector) = A.𝐚 == (0,0) && A.P == B
-==(A::DiskVector, B::Weighted{<:Any,<:DiskVector}) = B.𝐚 == (0,0) && A == B.P
+==(A::Weighted{<:Any,<:DiskVector}, B::DiskVector) = A.P.𝐚 == (0,0) && A.P == B
+==(A::DiskVector, B::Weighted{<:Any,<:DiskVector}) = B == A
 
 orthogonalityweight(P::DiskVector{T}) where {T} = DiskVectorWeight{T}(P.𝐚)
 

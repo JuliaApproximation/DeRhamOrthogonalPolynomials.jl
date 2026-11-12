@@ -13,6 +13,12 @@ end
             @test [sum(P[𝐱,k]'P[𝐱,j] for 𝐱 in UnitDisk()) for k=1:6, j=1:6] ≈ grammatrix(P)[1:6,1:6] ≈ (P'P)[1:6,1:6]
         end
 
+        # the weight is trivial when a = 0
+        @test Weighted(DiskBasis(1, 0)) == DiskBasis(1, 0)
+        @test DiskBasis(1, 0) == Weighted(DiskBasis(1, 0))
+        @test Weighted(DiskBasis(1, 1)) ≠ DiskBasis(1, 1)
+        @test DiskBasis(1, 1) ≠ Weighted(DiskBasis(1, 1))
+
         @testset "comparison with Zernike" begin
             𝐱 = SVector(0.1,0.2)
             @test Zernike()[𝐱,getindex.(Block.(1:2:10),1)] ≈ ComplexZernike()[𝐱,getindex.(Block.(1:2:10),1)] ≈ DiskBasis(0)[𝐱,1:5]
@@ -59,6 +65,13 @@ end
                 @test P[ρ * 𝐱, k] ≈ ρ * P[𝐱, k] * exp(im*m*θ)
             end
         end
+
+        @test DiskVectorWeight{Float64}()[𝐱] ≈ DiskVectorWeight((0,0))[𝐱]
+        # the weight is trivial when 𝐚 = (0,0)
+        @test Weighted(DiskVector(1)) == DiskVector(1)
+        @test DiskVector(1) == Weighted(DiskVector(1))
+        @test Weighted(DiskVector(1, (1,0))) ≠ DiskVector(1, (1,0))
+        @test DiskVector(1, (1,0)) ≠ Weighted(DiskVector(1, (1,0)))
     end
 
     @testset "matrix" begin
@@ -68,6 +81,7 @@ end
         Σ = [x^2-y^2 2x*y; 2x*y y^2-x^2]
 
         @testset "degree 0 and 1" begin
+            @test ClassicalOrthogonalPolynomials.orthogonalityweight(DiskMatrix(2, 1))[𝐱] ≈ DiskZernikeWeight(1)[𝐱]
             @test DiskMatrix(2)[𝐱,1] ≈ [1 im; im -1]
             @test DiskMatrix(-2)[𝐱,1] ≈ [1 -im; -im -1]
             @test DiskMatrix(0)[𝐱,1] ≈ [1 im; -im 1]
@@ -667,6 +681,14 @@ end
                 @test DiskVector(1, (1,0)) ≠ DiskCurlFree(1)
                 @test DiskCurlFree(1) ≠ DiskWeightedCurlFree(1)
                 @test DiskWeightedCurlFree(1) ≠ DiskCurlFree(1)
+                @test DiskCurlFree(1) ≠ DiskCoWeightedCurlFree(1)
+                @test DiskCoWeightedCurlFree(1) ≠ DiskCurlFree(1)
+                @test DiskWeightedCurlFree(1) ≠ DiskCoWeightedCurlFree(1)
+                @test DiskCoWeightedCurlFree(1) ≠ DiskWeightedCurlFree(1)
+                @test DiskWeightedCurlFree(1) ≠ DiskVector(1)
+                @test DiskVector(1) ≠ DiskWeightedCurlFree(1)
+                @test Weighted(DiskWeightedCurlFree(1)) ≠ DiskVector(1)
+                @test DiskVector(1) ≠ Weighted(DiskWeightedCurlFree(1))
 
                 for a = -1:2, m = -3:3
                     Q = DiskBasis(m, a)
@@ -692,7 +714,7 @@ end
                         @test isapproxdiagonal([sum(C[𝐱,k]'W[𝐱]*C[𝐱,j] for 𝐱 in UnitDisk()) for k=1:5, j=1:5])
                     else
                         V = DiskVector(m)
-                        @test (C'C)[1:5,1:5] ≈ [sum(C[𝐱,k]'C[𝐱,j] for 𝐱 in UnitDisk()) for k=1:5, j=1:5]
+                        @test grammatrix(C)[1:5,1:5] ≈ (C'C)[1:5,1:5] ≈ [sum(C[𝐱,k]'C[𝐱,j] for 𝐱 in UnitDisk()) for k=1:5, j=1:5]
                         @test (V'C)[1:5,1:5] ≈ (C'V)[1:5,1:5]' ≈ [sum(V[𝐱,k]'C[𝐱,j] for 𝐱 in UnitDisk()) for k=1:5, j=1:5]
                         @test (V'∇)[1:5,1:5] ≈ (∇'V)[1:5,1:5]' ≈ [sum(V[𝐱,k]'∇[𝐱,j] for 𝐱 in UnitDisk()) for k=1:5, j=1:5]
                         # inner products of columns use the Gram matrix rather than a transform
