@@ -139,7 +139,8 @@ function grad(Q::PeriodicCylinderBasis{T}) where T
     (; disk, k) = Q
     (; m, a) = disk
     # ∇p in DiskVector(m, (a+1,a))
-    PeriodicCylinderVector(disk, DiskVector{T}(m, (a+1,a)), k) * BlockInterlace(diskgradmatrix(T, m, a),
+    PeriodicCylinderVector(disk, DiskVector{T}(m, (a+1,a)), k) * BlockInterlace(
+                    DiskVector{T}(m, (a+1,a)) \ disk,
                     im*k*Eye((axes(disk,2),)); dims=1)
 end
 
@@ -154,7 +155,7 @@ function curl(P::PeriodicCylinderVector{T}) where T
     (; scalar, vector, k) = P
     m, a = scalar.m, scalar.a
     @assert vector == DiskVector{T}(m, (a+1,a))
-    G = diskgradmatrix(T, m, a) # ∇p in DiskVector(m, (a+1,a))
+    G = vector \ grad(scalar) # ∇p in DiskVector(m, (a+1,a))
     C = coefficients(curl(vector)) # curl(𝐮) in DiskBasis(m, a+1)
     R = diskrotmatrix(T, m) # R*𝐮 in DiskVector(m, (a,a+1))
     PeriodicCylinderVector(DiskBasis{T}(m, a+1), DiskVector{T}(m, (a,a+1)), k) *

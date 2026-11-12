@@ -662,18 +662,15 @@ end
 
             @testset "DiskCurlFree" begin
                 𝐱 = SVector(0.1,0.2)
-                @test DiskCurlFree(1) == DiskCurlFree(1, (1,0)) == DiskCurlFree{Float64}(1, (1,0))
+                @test DiskCurlFree(1) == DiskCurlFree{Float64}(1, 0)
                 @test DiskCurlFree(1) ≠ DiskCurlFree(2)
-                @test DiskCurlFree(1) ≠ DiskCurlFree(1, (2,1))
-                @test DiskCurlFree(1) ≠ DiskVector(1, (1,0))
                 @test DiskVector(1, (1,0)) ≠ DiskCurlFree(1)
                 @test DiskCurlFree(1) ≠ DiskWeightedCurlFree(1)
                 @test DiskWeightedCurlFree(1) ≠ DiskCurlFree(1)
-                @test_throws ArgumentError DiskCurlFree(1, (0,0))[𝐱,1]
 
                 for a = -1:2, m = -3:3
                     Q = DiskBasis(m, a)
-                    C = DiskCurlFree(m, (a+1,a))
+                    C = DiskCurlFree(m, a)
                     ∇ = grad(Q)
                     @test basis(∇) == C
                     @test axes(C,1) == axes(Q,1)
@@ -681,7 +678,7 @@ end
 
                     # the elements are the gradients of the non-constant elements of DiskBasis(m, a)
                     @test C[𝐱,1:6] ≈ [gradient(𝐱 -> DiskBasis{eltype(𝐱)}(m,a)[𝐱,n+iszero(m)], 𝐱) for n=1:6]
-                    @test all(abs(fd_curl(𝐱 -> DiskCurlFree{eltype(𝐱)}(m, (a+1,a))[𝐱,k], 𝐱)) ≤ 1E-10 for k=1:6)
+                    @test all(abs(fd_curl(𝐱 -> DiskCurlFree{eltype(𝐱)}(m, a)[𝐱,k], 𝐱)) ≤ 1E-10 for k=1:6)
 
                     # conversion to DiskVector
                     for 𝐛 in ((a+1,a), (a+1,a+1), (a+2,a+1))
