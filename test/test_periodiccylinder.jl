@@ -62,16 +62,14 @@ using ContinuumArrays: basis, coefficients
         end
     end
 
-    @testset "grad" begin
+    @testset "grad m = $m, ω = $ω" for m = -1:2, ω = -2:3
         𝐱 = SVector(0.1,0.2,0.3)
-        for m = -1:2, ω = -2:3
-            Q = PeriodicCylinderBasis(m, ω, -1)
-            ∇ = grad(Q)
-            for n = 1:10
-                @test gradient(𝐱 -> PeriodicCylinderBasis{eltype(𝐱)}(m, ω, -1)[𝐱,n], 𝐱) ≈ ∇[𝐱,n]
-            end
-            @test (∇'∇)[1:3,1:3] ≈ [sum(sum(∇[[𝐱;z],k]'∇[[𝐱;z],j] for 𝐱 in UnitDisk()) for z in 0..2π) for k=1:3, j=1:3]
+        Q = PeriodicCylinderBasis(m, ω, -1)
+        ∇ = grad(Q)
+        for n = 1:10
+            @test gradient(𝐱 -> PeriodicCylinderBasis{eltype(𝐱)}(m, ω, -1)[𝐱,n], 𝐱) ≈ ∇[𝐱,n]
         end
+        @test (∇'∇)[1:3,1:3] ≈ [sum(sum(∇[[𝐱;z],k]'∇[[𝐱;z],j] for 𝐱 in UnitDisk()) for z in 0..2π) for k=1:3, j=1:3]
     end
 
     @testset "curl" begin
