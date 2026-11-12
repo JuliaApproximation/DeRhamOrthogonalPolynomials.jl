@@ -19,7 +19,7 @@ using LinearAlgebra: norm_sqr
 using HarmonicOrthogonalPolynomials: sphericalharmonicnormalization
 
 export DiskVector, DiskMatrix, DiskVectorPlan, DiskVectorIPlan, disk2diskvector, diskvector2disk, ComplexZernikeITransform, DiskZernikeWeight, DiskVectorWeight, grad, curl, divergence, rotgrad,
-            DiskBasis, DiskCurlFree, DiskCoCurlFree
+            DiskBasis, DiskCurlFree, DiskWeightedCurlFree, DiskCoWeightedCurlFree
 export DiskMatrixPlan, DiskMatrixIPlan, disk2diskmatrix, diskmatrix2disk, equivariantmultiplication
 export VectorJacobi, vectorjacobip, VectorJacobiWeight, UnitDisk
 export PeriodicCylinderBasis, PeriodicCylinderVector

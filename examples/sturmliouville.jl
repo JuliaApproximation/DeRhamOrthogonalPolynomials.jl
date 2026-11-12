@@ -5,11 +5,11 @@ using ContinuumArrays: grid
 ########################
 # Sturm–Liouville
 #
-#   -∇ ⋅ A∇u = f,   A(𝐱) = α(r²)*I + β(r²)*Σ(𝐱) + γ(r²)*ρ(π/2)*Σ(𝐱)
+#   -∇ ⋅ A∇u = λ*u,   A(𝐱) = α(r²)*I + β(r²)*Σ(𝐱) + γ(r²)*ρ(π/2)*Σ(𝐱)
 #
 # where A is symmetric positive definite, can be written in weak form as
 #
-#   <∇v, A∇u> = <v, f>.
+#   <∇v, A∇u> = λ*<v, u>.
 # 
 # Multiplying by A keeps the mode of a vector field, so the problem splits
 # into one small system per mode m. The computed solutions are compared with exact solutions u, for which

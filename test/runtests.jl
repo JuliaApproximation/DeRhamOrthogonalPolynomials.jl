@@ -1,6 +1,6 @@
 using DeRhamOrthogonalPolynomials, MultivariateOrthogonalPolynomials, StaticArrays, InfiniteArrays, LazyBandedMatrices,  LinearAlgebra, Test, ForwardDiff
 using ClassicalOrthogonalPolynomials: weightedgrammatrix, expand, jacobip
-using DeRhamOrthogonalPolynomials: equivariantjacobimatrix, DiskCurlFree, 𝔯
+using DeRhamOrthogonalPolynomials: equivariantjacobimatrix, 𝔯
 
 isapproxdiagonal(A) = A ≈ Diagonal(diag(A))
 gradient(f, 𝐱) = ForwardDiff.gradient(𝐲 -> real(f(𝐲)), 𝐱) + im*ForwardDiff.gradient(𝐲 -> imag(f(𝐲)), 𝐱)

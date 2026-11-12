@@ -13,6 +13,12 @@ end
             @test [sum(P[𝐱,k]'P[𝐱,j] for 𝐱 in UnitDisk()) for k=1:6, j=1:6] ≈ grammatrix(P)[1:6,1:6] ≈ (P'P)[1:6,1:6]
         end
 
+        # the weight is trivial when a = 0
+        @test Weighted(DiskBasis(1, 0)) == DiskBasis(1, 0)
+        @test DiskBasis(1, 0) == Weighted(DiskBasis(1, 0))
+        @test Weighted(DiskBasis(1, 1)) ≠ DiskBasis(1, 1)
+        @test DiskBasis(1, 1) ≠ Weighted(DiskBasis(1, 1))
+
         @testset "comparison with Zernike" begin
             𝐱 = SVector(0.1,0.2)
             @test Zernike()[𝐱,getindex.(Block.(1:2:10),1)] ≈ ComplexZernike()[𝐱,getindex.(Block.(1:2:10),1)] ≈ DiskBasis(0)[𝐱,1:5]
@@ -59,6 +65,13 @@ end
                 @test P[ρ * 𝐱, k] ≈ ρ * P[𝐱, k] * exp(im*m*θ)
             end
         end
+
+        @test DiskVectorWeight{Float64}()[𝐱] ≈ DiskVectorWeight((0,0))[𝐱]
+        # the weight is trivial when 𝐚 = (0,0)
+        @test Weighted(DiskVector(1)) == DiskVector(1)
+        @test DiskVector(1) == Weighted(DiskVector(1))
+        @test Weighted(DiskVector(1, (1,0))) ≠ DiskVector(1, (1,0))
+        @test DiskVector(1, (1,0)) ≠ Weighted(DiskVector(1, (1,0)))
     end
 
     @testset "matrix" begin
@@ -68,6 +81,7 @@ end
         Σ = [x^2-y^2 2x*y; 2x*y y^2-x^2]
 
         @testset "degree 0 and 1" begin
+            @test ClassicalOrthogonalPolynomials.orthogonalityweight(DiskMatrix(2, 1))[𝐱] ≈ DiskZernikeWeight(1)[𝐱]
             @test DiskMatrix(2)[𝐱,1] ≈ [1 im; im -1]
             @test DiskMatrix(-2)[𝐱,1] ≈ [1 -im; -im -1]
             @test DiskMatrix(0)[𝐱,1] ≈ [1 im; -im 1]
@@ -319,7 +333,7 @@ end
             for m = -4:4
                 P = DiskVector(m)
                 Q = DiskVector(m, (0,1))
-                K = Weighted(DiskCurlFree(m))
+                K = Weighted(DiskWeightedCurlFree(m))
                 W = Weighted(Q)
                 if m == 1
                     @test Q[SVector(0.1,0),1] ≈ [1/2,im/2]
@@ -362,7 +376,7 @@ end
                 P = DiskVector(m)
                 Q = DiskVector(m, (0,1))
                 N = Weighted(Q)
-                K = Weighted(DiskCurlFree(m))
+                K = Weighted(DiskWeightedCurlFree(m))
                 W = Weighted(DiskBasis(m, 1))
 
                 L = P \ N
@@ -410,8 +424,8 @@ end
         @testset "WeightedGram" begin
             for m = -3:3
                 N = DiskVector(m, (0,1))
-                K = DiskCurlFree(m)
-                C = DiskCoCurlFree(m)
+                K = DiskWeightedCurlFree(m)
+                C = DiskCoWeightedCurlFree(m)
                 @test [sum(Weighted(K)[𝐱,k]'K[𝐱,j] for 𝐱 in UnitDisk()) for k=1:5, j=1:5] ≈ (K'Weighted(K))[1:5,1:5]
                 @test [sum(Weighted(C)[𝐱,k]'C[𝐱,j] for 𝐱 in UnitDisk()) for k=1:5, j=1:5] ≈ (C'Weighted(C))[1:5,1:5]
                 @test [sum(Weighted(N)[𝐱,k]'N[𝐱,j] for 𝐱 in UnitDisk()) for k=1:5, j=1:5] ≈ (N'Weighted(N))[1:5,1:5]
@@ -510,7 +524,7 @@ end
             @test rotgrad(P)[𝐱,1:10] ≈ [[0 -1; 1 0] * gradient(𝐱 -> DiskBasis{eltype(𝐱)}(m)[𝐱,j], 𝐱) for j=1:10]
             
             V = DiskVector(m)
-            D = Weighted(DiskCoCurlFree(m))
+            D = Weighted(DiskCoWeightedCurlFree(m))
             N = Weighted(DiskVector(m, (0,1)))
 
             let n = 10
@@ -519,13 +533,13 @@ end
                 @test (V\D)[1:2n+3,1:n]'V[𝐱,1:2n+3] ≈ D[𝐱,1:n]
             end
 
-            @test norm([sum(DiskCurlFree(m)[𝐱,k]'DiskVectorWeight((0,1))[𝐱]DiskCoCurlFree(m)[𝐱,j] for 𝐱 in UnitDisk()) for k=1:5, j=1:5]) ≤ 1E-10
-            @test isapproxdiagonal([sum(DiskCoCurlFree(m)[𝐱,k]'DiskVectorWeight((0,1))[𝐱]DiskCoCurlFree(m)[𝐱,j] for 𝐱 in UnitDisk()) for k=1:5, j=1:5])
+            @test norm([sum(DiskWeightedCurlFree(m)[𝐱,k]'DiskVectorWeight((0,1))[𝐱]DiskCoWeightedCurlFree(m)[𝐱,j] for 𝐱 in UnitDisk()) for k=1:5, j=1:5]) ≤ 1E-10
+            @test isapproxdiagonal([sum(DiskCoWeightedCurlFree(m)[𝐱,k]'DiskVectorWeight((0,1))[𝐱]DiskCoWeightedCurlFree(m)[𝐱,j] for 𝐱 in UnitDisk()) for k=1:5, j=1:5])
         
-            @test [sum(DiskCoCurlFree(m)[𝐱,k]'DiskVectorWeight((0,1))[𝐱]^2*DiskCoCurlFree(m)[𝐱,j] for 𝐱 in UnitDisk()) for k=1:5, j=1:5] ≈ (D'D)[1:5,1:5]
+            @test [sum(DiskCoWeightedCurlFree(m)[𝐱,k]'DiskVectorWeight((0,1))[𝐱]^2*DiskCoWeightedCurlFree(m)[𝐱,j] for 𝐱 in UnitDisk()) for k=1:5, j=1:5] ≈ (D'D)[1:5,1:5]
 
 
-            @test [fd_curl(𝐱 -> Weighted(DiskCoCurlFree{eltype(𝐱)}(m))[𝐱,j], 𝐱) for j = 1:10] ≈ curl(D)[𝐱,1:10]
+            @test [fd_curl(𝐱 -> Weighted(DiskCoWeightedCurlFree{eltype(𝐱)}(m))[𝐱,j], 𝐱) for j = 1:10] ≈ curl(D)[𝐱,1:10]
         end
     end
 
@@ -656,6 +670,57 @@ end
                     end
                     if a == -1
                         @test (∇'∇)[1:10,1:10] ≈ [sum(∇[𝐱,k]'∇[𝐱,j] for 𝐱 in UnitDisk()) for k=1:10, j=1:10] 
+                    end
+                end
+            end
+
+            @testset "DiskCurlFree" begin
+                𝐱 = SVector(0.1,0.2)
+                @test DiskCurlFree(1) == DiskCurlFree{Float64}(1, 0)
+                @test DiskCurlFree(1) ≠ DiskCurlFree(2)
+                @test DiskVector(1, (1,0)) ≠ DiskCurlFree(1)
+                @test DiskCurlFree(1) ≠ DiskWeightedCurlFree(1)
+                @test DiskWeightedCurlFree(1) ≠ DiskCurlFree(1)
+                @test DiskCurlFree(1) ≠ DiskCoWeightedCurlFree(1)
+                @test DiskCoWeightedCurlFree(1) ≠ DiskCurlFree(1)
+                @test DiskWeightedCurlFree(1) ≠ DiskCoWeightedCurlFree(1)
+                @test DiskCoWeightedCurlFree(1) ≠ DiskWeightedCurlFree(1)
+                @test DiskWeightedCurlFree(1) ≠ DiskVector(1)
+                @test DiskVector(1) ≠ DiskWeightedCurlFree(1)
+                @test Weighted(DiskWeightedCurlFree(1)) ≠ DiskVector(1)
+                @test DiskVector(1) ≠ Weighted(DiskWeightedCurlFree(1))
+
+                for a = -1:2, m = -3:3
+                    Q = DiskBasis(m, a)
+                    C = DiskCurlFree(m, a)
+                    ∇ = grad(Q)
+                    @test basis(∇) == C
+                    @test axes(C,1) == axes(Q,1)
+                    @test ClassicalOrthogonalPolynomials.orthogonalityweight(C)[𝐱] ≈ DiskVectorWeight((a+1,a))[𝐱]
+
+                    # the elements are the gradients of the non-constant elements of DiskBasis(m, a)
+                    @test C[𝐱,1:6] ≈ [gradient(𝐱 -> DiskBasis{eltype(𝐱)}(m,a)[𝐱,n+iszero(m)], 𝐱) for n=1:6]
+                    @test all(abs(fd_curl(𝐱 -> DiskCurlFree{eltype(𝐱)}(m, a)[𝐱,k], 𝐱)) ≤ 1E-10 for k=1:6)
+
+                    # conversion to DiskVector
+                    for 𝐛 in ((a+1,a), (a+1,a+1), (a+2,a+1))
+                        V = DiskVector(m, 𝐛)
+                        @test (V \ C)[1:14,1:6]'V[𝐱,1:14] ≈ C[𝐱,1:6]
+                        @test (V \ ∇)[1:14,1:6]'V[𝐱,1:14] ≈ ∇[𝐱,1:6]
+                    end
+
+                    if a ≥ 0 # orthogonal wrt DiskVectorWeight((a+1,a))
+                        W = DiskVectorWeight((a+1,a))
+                        @test isapproxdiagonal([sum(C[𝐱,k]'W[𝐱]*C[𝐱,j] for 𝐱 in UnitDisk()) for k=1:5, j=1:5])
+                    else
+                        V = DiskVector(m)
+                        @test grammatrix(C)[1:5,1:5] ≈ (C'C)[1:5,1:5] ≈ [sum(C[𝐱,k]'C[𝐱,j] for 𝐱 in UnitDisk()) for k=1:5, j=1:5]
+                        @test (V'C)[1:5,1:5] ≈ (C'V)[1:5,1:5]' ≈ [sum(V[𝐱,k]'C[𝐱,j] for 𝐱 in UnitDisk()) for k=1:5, j=1:5]
+                        @test (V'∇)[1:5,1:5] ≈ (∇'V)[1:5,1:5]' ≈ [sum(V[𝐱,k]'∇[𝐱,j] for 𝐱 in UnitDisk()) for k=1:5, j=1:5]
+                        # inner products of columns use the Gram matrix rather than a transform
+                        @test [∇[:,k]'∇[:,j] for k=1:4, j=1:4] ≈ (∇'∇)[1:4,1:4] atol=1E-14
+                        @test [V[:,k]'∇[:,j] for k=1:4, j=1:4] ≈ (V'∇)[1:4,1:4] atol=1E-14
+                        @test [V[:,k]'V[:,j] for k=1:4, j=1:4] ≈ (V'V)[1:4,1:4] atol=1E-14
                     end
                 end
             end

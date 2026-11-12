@@ -13,8 +13,8 @@ so that `grad` and `curl` map between bases with sparse operators. It builds on
 
 Currently supported:
 
-- **Disk**: Fourier mode-by-mode scalar bases (`DiskBasis`), vector bases (`DiskVector`) and the
-  curl-free/co-curl-free decomposition (`DiskCurlFree`, `DiskCoCurlFree`), with `grad`, `curl` and `rotgrad`.
+- **Disk**: Fourier mode-by-mode scalar bases (`DiskBasis`), vector bases (`DiskVector`), curl-free bases (`DiskCurlFree`) and the
+  weighted curl-free/co-curl-free decomposition (`DiskWeightedCurlFree`, `DiskCoWeightedCurlFree`), with `grad`, `curl` and `rotgrad`.
 - **Ball**: `BallBasis` and vector Zernike polynomials (`vectorzernike`).
 - **Periodic cylinder**: `PeriodicCylinderBasis`, `PeriodicCylinderBubble`, `PeriodicCylinderVector`
   and `PeriodicCylinderNormal`.

@@ -165,8 +165,8 @@ axes(P::DiskVector{T}) where {T} = (Inclusion(StaticUnitBall{RadialCoordinate{T}
 
 ==(A::DiskVector, B::DiskVector) = A.m == B.m && A.𝐚 == B.𝐚
 getindex(P::DiskVector, 𝐱::StaticVector{2}, j::Int) = P[𝐱, Block((j+1+!iszero(P.m))÷2)[min(j,mod(j-iszero(P.m),2)+1)]]
-==(A::Weighted{<:Any,<:DiskVector}, B::DiskVector) = A.𝐚 == (0,0) && A.P == B
-==(A::DiskVector, B::Weighted{<:Any,<:DiskVector}) = B.𝐚 == (0,0) && A == B.P
+==(A::Weighted{<:Any,<:DiskVector}, B::DiskVector) = A.P.𝐚 == (0,0) && A.P == B
+==(A::DiskVector, B::Weighted{<:Any,<:DiskVector}) = B == A
 
 orthogonalityweight(P::DiskVector{T}) where {T} = DiskVectorWeight{T}(P.𝐚)
 
@@ -374,32 +374,32 @@ end
 abstract type AbstractDiskHodge{T} <: Basis{SVector{2,Complex{T}}} end
 
 
-struct DiskCurlFree{T} <: AbstractDiskHodge{T}
+struct DiskWeightedCurlFree{T} <: AbstractDiskHodge{T}
     m::Int
 end
 
-struct DiskCoCurlFree{T} <: AbstractDiskHodge{T}
+struct DiskCoWeightedCurlFree{T} <: AbstractDiskHodge{T}
     m::Int
 end
 
-DiskCurlFree(m) = DiskCurlFree{Float64}(m)
-DiskCoCurlFree(m) = DiskCoCurlFree{Float64}(m)
+DiskWeightedCurlFree(m) = DiskWeightedCurlFree{Float64}(m)
+DiskCoWeightedCurlFree(m) = DiskCoWeightedCurlFree{Float64}(m)
 
 axes(P::AbstractDiskHodge{T}) where T = (Inclusion(UnitDisk{T}()), unitblocks(oneto(∞)))
 orthogonalityweight(::AbstractDiskHodge{T}) where {T} = DiskVectorWeight{T}((0,1))
-==(A::DiskCurlFree, B::DiskCurlFree) = A.m == B.m
-==(A::DiskCoCurlFree, B::DiskCoCurlFree) = A.m == B.m
-==(A::DiskCurlFree, B::DiskCoCurlFree) = false
-==(A::DiskCoCurlFree, B::DiskCurlFree) = false
+==(A::DiskWeightedCurlFree, B::DiskWeightedCurlFree) = A.m == B.m
+==(A::DiskCoWeightedCurlFree, B::DiskCoWeightedCurlFree) = A.m == B.m
+# different subtypes of AbstractDiskHodge are never equal; each subtype defines == with itself
+==(A::AbstractDiskHodge, B::AbstractDiskHodge) = false
 ==(A::AbstractDiskHodge, B::DiskVector) = false
 ==(A::DiskVector, B::AbstractDiskHodge) = false
 ==(A::Weighted{<:Any,<:AbstractDiskHodge}, B::DiskVector) = false
 ==(A::DiskVector, B::Weighted{<:Any,<:AbstractDiskHodge}) = false
 
 
-getindex(P::DiskCurlFree{T}, 𝐱::SVector{2}, k::Int) where T = iszero(P.m) ? 2DiskVector{T}(P.m, (0,1))[𝐱,Block(k)[1]]  : sum(DiskVector{T}(P.m, (0,1))[𝐱,Block(k+1)])
+getindex(P::DiskWeightedCurlFree{T}, 𝐱::SVector{2}, k::Int) where T = iszero(P.m) ? 2DiskVector{T}(P.m, (0,1))[𝐱,Block(k)[1]]  : sum(DiskVector{T}(P.m, (0,1))[𝐱,Block(k+1)])
 
-function getindex(P::DiskCoCurlFree{T}, 𝐱::SVector{2}, k::Int) where T
+function getindex(P::DiskCoWeightedCurlFree{T}, 𝐱::SVector{2}, k::Int) where T
     m = P.m
     Q = DiskVector{T}(m, (0,1))
     if iszero(m)
@@ -413,6 +413,63 @@ function getindex(P::DiskCoCurlFree{T}, 𝐱::SVector{2}, k::Int) where T
 end
 
 
+"""
+    DiskCurlFree(m, a)
+
+is the basis of curl-free vector polynomials with mode `m` given by the gradients of the non-constant elements of `DiskBasis(m, a)`.
+It is orthogonal wrt `DiskVectorWeight((a+1,a))` and its span is contained in that of `DiskVector(m, (a+1,a))`.
+"""
+struct DiskCurlFree{T} <: AbstractDiskHodge{T}
+    m::Int
+    a::Int
+end
+
+DiskCurlFree{T}(m) where T = DiskCurlFree{T}(m, 0)
+DiskCurlFree(m, a...) = DiskCurlFree{Float64}(m, a...)
+
+axes(P::DiskCurlFree{T}) where T = (Inclusion(StaticUnitBall{RadialCoordinate{T}, :closed}()), unitblocks(oneto(∞)))
+orthogonalityweight(P::DiskCurlFree{T}) where T = DiskVectorWeight{T}((P.a+1,P.a))
+==(A::DiskCurlFree, B::DiskCurlFree) = A.m == B.m && A.a == B.a
+
+
+"""
+    zernikegrad(m, j, λ, 𝐱)
+
+is the gradient of `zernike(m, j, λ, 𝐱)`.
+"""
+function zernikegrad(m, j::Int, λ, 𝐱::StaticVector{2})
+    b = abs(m)
+    x,y = 𝐱
+    τ = 2norm_sqr(𝐱)-1
+    s = im*sign(m)
+    z = x + s*y
+    # ∇[z^b * p(2r^2-1)] = b*z^(b-1)*p(2r^2-1) * [1,s] + 4z^b * p'(2r^2-1) * 𝐱
+    ret = (2*(j+λ+b+1)*(iszero(j) ? zero(τ) : jacobip(j-1, λ+1, b+1, τ))*z^b) * SVector(x, y)
+    iszero(b) ? ret : ret + (b*jacobip(j, λ, b, τ)*z^(b-1)) * SVector(1, s)
+end
+
+getindex(P::DiskCurlFree, 𝐱::StaticVector{2}, k::Int) = zernikegrad(P.m, k-1+iszero(P.m), P.a, 𝐱)
+
+
+function diskcurlfreetovectormatrix(::Type{T}, m, a) where T
+    if iszero(m)
+        #   ∇P_j^(a, 0)(2r²-1) = e_r  d/dr P_j^(a, 0)(2r²-1) = 4 r P_j^(a, 0)'(2r^2-1) = 
+        #   = e_r * 2r * (j+a+1) * P_{j-1}^(a+1, 1)(2r²-1)
+        #   = [x,y] * 2 * (j+a+1) * P_{j-1}^(a+1, 1)(2r²-1)
+        _BandedBlockBandedMatrix(unitblocks((2*(convert(T,a+1) .+ (1:∞)))'), BlockedOneTo(2:2:∞), (0,0), (0,0))
+    else
+        laddergradmatrix(T, a, abs(m))
+    end
+end
+
+function \(Q::DiskVector{T}, C::DiskCurlFree{V}) where {T,V}
+    (; m, a) = C
+    @assert m == Q.m
+    TV = promote_type(T,V)
+    P = DiskVector{TV}(C)
+    (Q \ P) * diskcurlfreetovectormatrix(TV, m, a)
+end
+
 _block_lower_ones(T) = _BandedBlockBandedMatrix(
     Ones{T}((Base.OneTo(2), blockedrange(Ones{Int}(∞)))),
     BlockedOneTo(1:2:∞), (1,-1), (1,0))
@@ -421,7 +478,7 @@ _block_lower_firsttwo(T) = _BandedBlockBandedMatrix(
     Fill(convert(T,2), (Base.OneTo(1), blockedrange(Ones{Int}(∞)))),
     BlockedOneTo(2:2:∞), (0,0), (0,0))
 
-function \(W::DiskVector{T}, P::DiskCurlFree{V}) where {T,V}
+function \(W::DiskVector{T}, P::DiskWeightedCurlFree{V}) where {T,V}
     @assert W.m == P.m && W.𝐚 == (0,1)
     if iszero(W.m)
         _block_lower_firsttwo(promote_type(T,V))
@@ -431,7 +488,7 @@ function \(W::DiskVector{T}, P::DiskCurlFree{V}) where {T,V}
 end
 
 
-function \(W::DiskVector{T1}, P::DiskCoCurlFree{T2}) where {T1,T2}
+function \(W::DiskVector{T1}, P::DiskCoWeightedCurlFree{T2}) where {T1,T2}
     T = promote_type(T1,T2)
     j = 0:∞
     m = W.m
@@ -447,17 +504,17 @@ function \(W::DiskVector{T1}, P::DiskCoCurlFree{T2}) where {T1,T2}
     end
 end
 
-function \(A::DiskVector{V}, B::Weighted{<:Any,<:DiskCurlFree{T}}) where {T,V}
+function \(A::DiskVector{V}, B::Weighted{<:Any,<:DiskWeightedCurlFree{T}}) where {T,V}
     @assert A.𝐚 == (0,0)
     DiskVector{V}(A.m, (0,1)) \ B.P # happens to be identical
 end
 \(A::Weighted{<:Any,<:DiskVector}, B::Weighted{<:Any,<:AbstractDiskHodge}) = A.P \ B.P
-function \(A::DiskVector{V}, B::Weighted{<:Any,<:DiskCoCurlFree{T}}) where {T,V}
+function \(A::DiskVector{V}, B::Weighted{<:Any,<:DiskCoWeightedCurlFree{T}}) where {T,V}
     N = Weighted(DiskVector{V}(A.m, (0,1)))
     (A\ N) * (N \ B)
 end
 
-function grammatrix(K::Weighted{<:Any,<:DiskCurlFree{T}}) where T
+function grammatrix(K::Weighted{<:Any,<:DiskWeightedCurlFree{T}}) where T
     if iszero(K.P.m)
         Diagonal(convert(T,π)*weightedgrammatrix(Jacobi{T}(0,1)).diag)
     else
@@ -465,13 +522,13 @@ function grammatrix(K::Weighted{<:Any,<:DiskCurlFree{T}}) where T
     end
 end
 
-function weightedgrammatrix(K::DiskCurlFree{T}) where T
+function weightedgrammatrix(K::DiskWeightedCurlFree{T}) where T
     a = abs(K.m)
     j = 0:∞
     convert(T,π)*Diagonal((2j .+ (a+2)) ./ ((j .+ (a+1)) .* (j .+ 1)))
 end
 
-function weightedgrammatrix(K::DiskCoCurlFree{T}) where T
+function weightedgrammatrix(K::DiskCoWeightedCurlFree{T}) where T
     a = abs(K.m)
     iszero(a) && return convert(T,π)/2 * weightedgrammatrix(Jacobi{T}(1,1))
     j = 0:∞
@@ -534,7 +591,36 @@ end
     (V\N)' * grammatrix(V) * (V\Q)
 end
 
-function grammatrix(D::Weighted{<:Any,<:DiskCoCurlFree{T}}) where T
+# inner products of DiskCurlFree are computed via the conversion to DiskVector
+DiskVector{T}(C::DiskCurlFree) where T = DiskVector{T}(C.m, (C.a+1,C.a))
+DiskVector(C::DiskCurlFree{T}) where T = DiskVector{T}(C)
+
+@simplify function *(Cc::QuasiAdjoint{<:Any, <:DiskCurlFree}, D::DiskCurlFree)
+    C = parent(Cc)
+    P,Q = DiskVector(C),DiskVector(D)
+    (P\C)' * (P'Q) * (Q\D)
+end
+
+@simplify function *(Qc::QuasiAdjoint{<:Any, <:Union{DiskVector, Weighted{<:Any,<:DiskVector}}}, C::DiskCurlFree)
+    P = DiskVector(C)
+    (Qc*P) * (P\C)
+end
+
+grammatrix(C::DiskCurlFree) = C'C
+
+# a column of a basis is expanded exactly, avoiding a transform. This means
+# inner products of columns, e.g. C[:,k]'C[:,j], are computed via the Gram matrix.
+const _DiskVectorBases = Union{DiskVector, DiskCurlFree}
+function \(P::_DiskVectorBases, v::SubQuasiArray{<:Any,1,<:_DiskVectorBases,<:Tuple{Inclusion,Int}})
+    Q = parent(v)
+    k = parentindices(v)[2]
+    ax = axes(Q,2)
+    T = promote_type(eltype(eltype(P)), eltype(eltype(Q)))
+    e = pad([zeros(T, k-1); one(T)], ax)
+    P == Q ? e : (P \ Q) * e
+end
+
+function grammatrix(D::Weighted{<:Any,<:DiskCoWeightedCurlFree{T}}) where T
     V = DiskVector(D.P.m)
     (V\D)' * grammatrix(V) * (V\D)
 end
@@ -553,19 +639,22 @@ divergence(f::AbstractQuasiArray) = divergence_layout(MemoryLayout(f), f)
 divergence_layout(::ExpansionLayout, f) = divergence(basis(f)) * coefficients(f)
 function grad(W::Weighted{<:Any,<:DiskBasis{T}}) where {T}
     @assert W.P.a == 1
-    Weighted(DiskCurlFree{T}(W.P.m)) * Diagonal(unitblocks(-(one(T):∞)))
+    Weighted(DiskWeightedCurlFree{T}(W.P.m)) * Diagonal(unitblocks(-(one(T):∞)))
 end
 
+"""
+    grad(Z::DiskBasis)
+
+represents the gradient of `Z = DiskBasis(m, a)`, expanded in `DiskCurlFree(m, (a+1,a))`.
+"""
 function grad(Z::DiskBasis{T}) where {T}
     (; a, m) = Z
-    Q = DiskVector{T}(m, (a+1,a))
+    # the identity, shifted when m = 0 as the gradient of the constant vanishes
     if iszero(m)
-        #   ∇P_j^(a, 0)(2r²-1) = e_r  d/dr P_j^(a, 0)(2r²-1) = 4 r P_j^(a, 0)'(2r^2-1) = 
-        #   = e_r * 2r * (j+a+1) * P_{j-1}^(a+1, 1)(2r²-1)
-        #   = [x,y] * 2 * (j+a+1) * P_{j-1}^(a+1, 1)(2r²-1)
-        Q * _BandedBlockBandedMatrix(unitblocks((2*(convert(T,a) .+ (1:∞)))'), axes(Q,2), (-1,1), (0,0))
+        # data is a Fill (not Ones') so that broadcasting, e.g. 2π * grad(Z)'grad(Z), stays lazy
+        ApplyQuasiArray(*, DiskCurlFree{T}(m, a), _BandedBlockBandedMatrix(Ones{T}((Base.OneTo(1), blockedrange(Ones{Int}(∞)))), axes(Z,2), (-1,1), (0,0)))
     else
-        Q * laddergradmatrix(T, Z.a, abs(m))
+        DiskCurlFree{T}(m, a)
     end
 end
 
@@ -587,7 +676,7 @@ function curl(W::Weighted{<:Any,<:DiskVector{T}}) where T
     @assert W.P.𝐚 == (0,1)
     ApplyQuasiArray(*, DiskBasis{T}(W.P.m), disknormalcurlmatrix(T, W.P.m))
 end
-function curl(W::Weighted{<:Any,<:DiskCoCurlFree{T}}) where T
+function curl(W::Weighted{<:Any,<:DiskCoWeightedCurlFree{T}}) where T
     j = 0:∞
     m = W.P.m
     if iszero(m)
@@ -611,7 +700,7 @@ function curl(𝐏::DiskVector{T}) where {T}
 end
 
 
-rotgrad(P::DiskBasis{T}) where T = DiskCoCurlFree{T}(P.m) * (iszero(P.m) ? _BandedMatrix((1:∞)', ∞, -1, 1) : im*sign(P.m)*Eye{T}(∞))
+rotgrad(P::DiskBasis{T}) where T = DiskCoWeightedCurlFree{T}(P.m) * (iszero(P.m) ? _BandedMatrix((1:∞)', ∞, -1, 1) : im*sign(P.m)*Eye{T}(∞))
 
 """
     diskrotmatrix(T, m)
