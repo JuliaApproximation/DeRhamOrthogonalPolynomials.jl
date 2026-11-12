@@ -389,8 +389,8 @@ axes(P::AbstractDiskHodge{T}) where T = (Inclusion(UnitDisk{T}()), unitblocks(on
 orthogonalityweight(::AbstractDiskHodge{T}) where {T} = DiskVectorWeight{T}((0,1))
 ==(A::DiskWeightedCurlFree, B::DiskWeightedCurlFree) = A.m == B.m
 ==(A::DiskCoWeightedCurlFree, B::DiskCoWeightedCurlFree) = A.m == B.m
-==(A::DiskWeightedCurlFree, B::DiskCoWeightedCurlFree) = false
-==(A::DiskCoWeightedCurlFree, B::DiskWeightedCurlFree) = false
+# different subtypes of AbstractDiskHodge are never equal; each subtype defines == with itself
+==(A::AbstractDiskHodge, B::AbstractDiskHodge) = false
 ==(A::AbstractDiskHodge, B::DiskVector) = false
 ==(A::DiskVector, B::AbstractDiskHodge) = false
 ==(A::Weighted{<:Any,<:AbstractDiskHodge}, B::DiskVector) = false
@@ -430,8 +430,6 @@ DiskCurlFree(m, a...) = DiskCurlFree{Float64}(m, a...)
 axes(P::DiskCurlFree{T}) where T = (Inclusion(StaticUnitBall{RadialCoordinate{T}, :closed}()), unitblocks(oneto(∞)))
 orthogonalityweight(P::DiskCurlFree{T}) where T = DiskVectorWeight{T}((P.a+1,P.a))
 ==(A::DiskCurlFree, B::DiskCurlFree) = A.m == B.m && A.a == B.a
-==(A::DiskCurlFree, B::AbstractDiskHodge) = false
-==(A::AbstractDiskHodge, B::DiskCurlFree) = false
 
 
 """
