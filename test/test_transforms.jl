@@ -290,7 +290,7 @@ using MultivariateOrthogonalPolynomials: ModalTrav
         @testset "derivatives" begin
             # grad and curl act mode by mode, so the coefficients of the derivatives follow from those of the field:
             #
-            #   grad: DiskBasis(m) → DiskVector(m, (1,0)),   curl: DiskVector(m, (1,0)) → DiskBasis(m, 1)
+            #   grad: DiskBasis(m) → DiskCurlFree(m, (1,0)) ⊂ DiskVector(m, (1,0)),   curl: DiskVector(m, (1,0)) → DiskBasis(m, 1)
 
             N = 41 # total degree N-1
             # column j of the coefficients holds the mode m = (-1)^iseven(j) * j ÷ 2
@@ -306,7 +306,8 @@ using MultivariateOrthogonalPolynomials: ModalTrav
             n = size(C,1)
             G = zeros(ComplexF64, 2n+2, size(C,2))
             for j in axes(C,2) # Put coefficients of gradu into G
-                G[:,j] = coefficients(grad(DiskBasis((-1)^iseven(j) * j ÷ 2)))[1:2n+2, 1:n] * C[:,j]
+                m = (-1)^iseven(j) * j ÷ 2
+                G[:,j] = (DiskVector(m, (1,0)) \ grad(DiskBasis(m)))[1:2n+2, 1:n] * C[:,j]
             end
             Pⁱ = DiskVectorIPlan(N+2, (1,0)) # evaluates the coefficients on a grid
             @test Pⁱ * G ≈ ∇u.(grid(Pⁱ))
@@ -323,7 +324,7 @@ using MultivariateOrthogonalPolynomials: ModalTrav
 
             # and curl(grad(u)) == 0 holds exactly for the coefficient matrices
             for m in -3:3
-                D = coefficients(grad(DiskBasis(m)))[1:2n+2, 1:n]
+                D = (DiskVector(m, (1,0)) \ grad(DiskBasis(m)))[1:2n+2, 1:n]
                 K = coefficients(curl(DiskVector(m, (1,0))))[1:n+1, 1:2n+2]
                 @test norm(K * D) ≤ 1e-12 * norm(D)
             end

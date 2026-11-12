@@ -413,6 +413,78 @@ function getindex(P::DiskCoWeightedCurlFree{T}, 𝐱::SVector{2}, k::Int) where 
 end
 
 
+"""
+    DiskCurlFree(m, (a+1,a))
+
+is the basis of curl-free vector polynomials with mode `m` given by the gradients of the non-constant elements of `DiskBasis(m, a)`.
+It is orthogonal wrt `DiskVectorWeight((a+1,a))` and its span is contained in that of `DiskVector(m, (a+1,a))`.
+"""
+struct DiskCurlFree{T} <: AbstractDiskHodge{T}
+    m::Int
+    𝐚::NTuple{2,Int}
+end
+
+DiskCurlFree{T}(m) where T = DiskCurlFree{T}(m, (1,0))
+DiskCurlFree(m, 𝐚...) = DiskCurlFree{Float64}(m, 𝐚...)
+
+axes(P::DiskCurlFree{T}) where T = (Inclusion(StaticUnitBall{RadialCoordinate{T}, :closed}()), unitblocks(oneto(∞)))
+orthogonalityweight(P::DiskCurlFree{T}) where T = DiskVectorWeight{T}(P.𝐚)
+==(A::DiskCurlFree, B::DiskCurlFree) = A.m == B.m && A.𝐚 == B.𝐚
+==(A::DiskCurlFree, B::AbstractDiskHodge) = false
+==(A::AbstractDiskHodge, B::DiskCurlFree) = false
+
+# the parameter a of the DiskBasis(m, a) whose gradients are P
+function _curlfreeparameter(P::DiskCurlFree)
+    a₁,a = P.𝐚
+    a₁ == a+1 || throw(ArgumentError("DiskCurlFree is only implemented for parameters (a+1,a)"))
+    a
+end
+
+"""
+    zernikegrad(m, j, λ, 𝐱)
+
+is the gradient of `zernike(m, j, λ, 𝐱)`.
+"""
+function zernikegrad(m, j::Int, λ, 𝐱::StaticVector{2})
+    b = abs(m)
+    x,y = 𝐱
+    τ = 2norm_sqr(𝐱)-1
+    s = im*sign(m)
+    z = x + s*y
+    # ∇[z^b * p(2r^2-1)] = b*z^(b-1)*p(2r^2-1) * [1,s] + 4z^b * p'(2r^2-1) * 𝐱
+    ret = (2*(j+λ+b+1)*(iszero(j) ? zero(τ) : jacobip(j-1, λ+1, b+1, τ))*z^b) * SVector(x, y)
+    iszero(b) ? ret : ret + (b*jacobip(j, λ, b, τ)*z^(b-1)) * SVector(1, s)
+end
+
+getindex(P::DiskCurlFree, 𝐱::StaticVector{2}, k::Int) = zernikegrad(P.m, k-1+iszero(P.m), _curlfreeparameter(P), 𝐱)
+
+"""
+    diskgradmatrix(T, m, a)
+
+gives the coefficients of the gradient, that is, `grad(DiskBasis(m, a)) == DiskVector(m, (a+1,a)) * diskgradmatrix(T, m, a)`.
+"""
+function diskgradmatrix(::Type{T}, m, a) where T
+    if iszero(m)
+        #   ∇P_j^(a, 0)(2r²-1) = e_r  d/dr P_j^(a, 0)(2r²-1) = 4 r P_j^(a, 0)'(2r^2-1) = 
+        #   = e_r * 2r * (j+a+1) * P_{j-1}^(a+1, 1)(2r²-1)
+        #   = [x,y] * 2 * (j+a+1) * P_{j-1}^(a+1, 1)(2r²-1)
+        _BandedBlockBandedMatrix(unitblocks((2*(convert(T,a) .+ (1:∞)))'), BlockedOneTo(2:2:∞), (-1,1), (0,0))
+    else
+        laddergradmatrix(T, a, abs(m))
+    end
+end
+
+function \(Q::DiskVector{T}, C::DiskCurlFree{V}) where {T,V}
+    m = Q.m
+    @assert m == C.m
+    TV = promote_type(T,V)
+    a = _curlfreeparameter(C)
+    P = DiskVector{TV}(m, C.𝐚)
+    # for m = 0 the constant is skipped, which shifts the coefficients of the gradient
+    R = iszero(m) ? _BandedBlockBandedMatrix(unitblocks((2*(convert(TV,a+1) .+ (1:∞)))'), BlockedOneTo(2:2:∞), (0,0), (0,0)) : diskgradmatrix(TV, m, a)
+    Q == P ? R : (Q \ P) * R
+end
+
 _block_lower_ones(T) = _BandedBlockBandedMatrix(
     Ones{T}((Base.OneTo(2), blockedrange(Ones{Int}(∞)))),
     BlockedOneTo(1:2:∞), (1,-1), (1,0))
@@ -534,6 +606,22 @@ end
     (V\N)' * grammatrix(V) * (V\Q)
 end
 
+# inner products of DiskCurlFree are computed via the conversion to DiskVector
+_diskvector(C::DiskCurlFree{T}) where T = DiskVector{T}(C.m, C.𝐚)
+
+@simplify function *(Cc::QuasiAdjoint{<:Any, <:DiskCurlFree}, D::DiskCurlFree)
+    C = parent(Cc)
+    P,Q = _diskvector(C),_diskvector(D)
+    (P\C)' * (P'Q) * (Q\D)
+end
+
+@simplify function *(Qc::QuasiAdjoint{<:Any, <:Union{DiskVector, Weighted{<:Any,<:DiskVector}}}, C::DiskCurlFree)
+    P = _diskvector(C)
+    (Qc*P) * (P\C)
+end
+
+grammatrix(C::DiskCurlFree) = C'C
+
 function grammatrix(D::Weighted{<:Any,<:DiskCoWeightedCurlFree{T}}) where T
     V = DiskVector(D.P.m)
     (V\D)' * grammatrix(V) * (V\D)
@@ -556,17 +644,16 @@ function grad(W::Weighted{<:Any,<:DiskBasis{T}}) where {T}
     Weighted(DiskWeightedCurlFree{T}(W.P.m)) * Diagonal(unitblocks(-(one(T):∞)))
 end
 
+"""
+    grad(Z::DiskBasis)
+
+represents the gradient of `Z = DiskBasis(m, a)`, expanded in `DiskCurlFree(m, (a+1,a))`.
+"""
 function grad(Z::DiskBasis{T}) where {T}
     (; a, m) = Z
-    Q = DiskVector{T}(m, (a+1,a))
-    if iszero(m)
-        #   ∇P_j^(a, 0)(2r²-1) = e_r  d/dr P_j^(a, 0)(2r²-1) = 4 r P_j^(a, 0)'(2r^2-1) = 
-        #   = e_r * 2r * (j+a+1) * P_{j-1}^(a+1, 1)(2r²-1)
-        #   = [x,y] * 2 * (j+a+1) * P_{j-1}^(a+1, 1)(2r²-1)
-        Q * _BandedBlockBandedMatrix(unitblocks((2*(convert(T,a) .+ (1:∞)))'), axes(Q,2), (-1,1), (0,0))
-    else
-        Q * laddergradmatrix(T, Z.a, abs(m))
-    end
+    # the identity, shifted when m = 0 as the gradient of the constant vanishes
+    l = -iszero(m)
+    ApplyQuasiArray(*, DiskCurlFree{T}(m, (a+1,a)), _BandedBlockBandedMatrix(unitblocks(Ones{T}(∞)'), axes(Z,2), (l,-l), (0,0)))
 end
 
 function disknormalcurlmatrix(T, m)
