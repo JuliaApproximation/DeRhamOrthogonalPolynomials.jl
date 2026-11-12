@@ -641,7 +641,7 @@ function grad(Z::DiskBasis{T}) where {T}
     (; a, m) = Z
     # the identity, shifted when m = 0 as the gradient of the constant vanishes
     if iszero(m)
-        ApplyQuasiArray(*, DiskCurlFree{T}(m, a), _BandedBlockBandedMatrix(unitblocks(Ones{T}(∞)'), axes(Z,2), (1,-1), (0,0)))
+        ApplyQuasiArray(*, DiskCurlFree{T}(m, a), _BandedBlockBandedMatrix(unitblocks(Ones{T}(∞)'), axes(Z,2), (-1,1), (0,0)))
     else
         DiskCurlFree{T}(m, a)
     end
