@@ -610,6 +610,18 @@ end
 
 grammatrix(C::DiskCurlFree) = C'C
 
+# a column of a basis is expanded exactly, avoiding a transform. This means
+# inner products of columns, e.g. C[:,k]'C[:,j], are computed via the Gram matrix.
+const _DiskVectorBases = Union{DiskVector, DiskCurlFree}
+function \(P::_DiskVectorBases, v::SubQuasiArray{<:Any,1,<:_DiskVectorBases,<:Tuple{Inclusion,Int}})
+    Q = parent(v)
+    k = parentindices(v)[2]
+    ax = axes(Q,2)
+    T = promote_type(eltype(eltype(P)), eltype(eltype(Q)))
+    e = pad([zeros(T, k-1); one(T)], ax)
+    P == Q ? e : (P \ Q) * e
+end
+
 function grammatrix(D::Weighted{<:Any,<:DiskCoWeightedCurlFree{T}}) where T
     V = DiskVector(D.P.m)
     (V\D)' * grammatrix(V) * (V\D)
@@ -641,7 +653,8 @@ function grad(Z::DiskBasis{T}) where {T}
     (; a, m) = Z
     # the identity, shifted when m = 0 as the gradient of the constant vanishes
     if iszero(m)
-        ApplyQuasiArray(*, DiskCurlFree{T}(m, a), _BandedBlockBandedMatrix(unitblocks(Ones{T}(∞)'), axes(Z,2), (-1,1), (0,0)))
+        # data is a Fill (not Ones') so that broadcasting, e.g. 2π * grad(Z)'grad(Z), stays lazy
+        ApplyQuasiArray(*, DiskCurlFree{T}(m, a), _BandedBlockBandedMatrix(Ones{T}((Base.OneTo(1), blockedrange(Ones{Int}(∞)))), axes(Z,2), (-1,1), (0,0)))
     else
         DiskCurlFree{T}(m, a)
     end

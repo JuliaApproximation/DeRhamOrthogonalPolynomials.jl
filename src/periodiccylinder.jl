@@ -140,7 +140,7 @@ function grad(Q::PeriodicCylinderBasis{T}) where T
     (; m, a) = disk
     # ∇p in DiskVector(m, (a+1,a))
     PeriodicCylinderVector(disk, DiskVector{T}(m, (a+1,a)), k) * BlockInterlace(
-                    DiskVector{T}(m, (a+1,a)) \ disk,
+                    DiskVector{T}(m, (a+1,a)) \ grad(disk),
                     im*k*Eye((axes(disk,2),)); dims=1)
 end
 

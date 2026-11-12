@@ -695,6 +695,10 @@ end
                         @test (C'C)[1:5,1:5] ≈ [sum(C[𝐱,k]'C[𝐱,j] for 𝐱 in UnitDisk()) for k=1:5, j=1:5]
                         @test (V'C)[1:5,1:5] ≈ (C'V)[1:5,1:5]' ≈ [sum(V[𝐱,k]'C[𝐱,j] for 𝐱 in UnitDisk()) for k=1:5, j=1:5]
                         @test (V'∇)[1:5,1:5] ≈ (∇'V)[1:5,1:5]' ≈ [sum(V[𝐱,k]'∇[𝐱,j] for 𝐱 in UnitDisk()) for k=1:5, j=1:5]
+                        # inner products of columns use the Gram matrix rather than a transform
+                        @test [∇[:,k]'∇[:,j] for k=1:4, j=1:4] ≈ (∇'∇)[1:4,1:4] atol=1E-14
+                        @test [V[:,k]'∇[:,j] for k=1:4, j=1:4] ≈ (V'∇)[1:4,1:4] atol=1E-14
+                        @test [V[:,k]'V[:,j] for k=1:4, j=1:4] ≈ (V'V)[1:4,1:4] atol=1E-14
                     end
                 end
             end
