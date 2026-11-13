@@ -9,7 +9,7 @@ using LazyArrays: paddeddata
 using BlockArrays: block, blockindex, findblockindex
 import Base: getindex, axes, \, *, ==, OneTo, tail, inv
 import ClassicalOrthogonalPolynomials: orthogonalityweight, Weight, jacobimatrix, weightedgrammatrix, grammatrix, HalfWeighted, transform_ldiv, pad
-using BandedMatrices: _BandedMatrix
+using BandedMatrices: _BandedMatrix, BandedMatrix
 using InfiniteArrays: OneToInf
 using BlockBandedMatrices: _BandedBlockBandedMatrix
 import ContinuumArrays: @simplify, ExpansionLayout, grid, AffineMap
