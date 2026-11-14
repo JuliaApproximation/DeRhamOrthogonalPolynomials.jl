@@ -1,7 +1,7 @@
 using DeRhamOrthogonalPolynomials, MultivariateOrthogonalPolynomials, ClassicalOrthogonalPolynomials, ContinuumArrays, StaticArrays, BlockArrays, LinearAlgebra, Test
 using DeRhamOrthogonalPolynomials: _complexzernikemode, _complexzernikecolumn, _diskvectordegree
 using DeRhamOrthogonalPolynomials: _diskmatrixdegree, _complexzernikecolumn, equivariantjacobimatrix
-using MultivariateOrthogonalPolynomials: ModalTrav
+using MultivariateOrthogonalPolynomials: ModalTrav, zernikegrid
 
 @testset "transforms" begin
     @testset "DiskVector transform" begin
@@ -9,7 +9,7 @@ using MultivariateOrthogonalPolynomials: ModalTrav
             𝐟 = splat((x,y) -> SVector(exp(x*sin(y+1)), cos(exp(x)*(y+2)-1)))
             for N = 20:25, 𝐚 in ((0,0), (-1,0), (1,0), (0,-1), (0,1))
                 Pl = DiskVectorPlan(N, 𝐚)
-                g = grid(Pl)
+                g = zernikegrid(N)
                 F = Pl * 𝐟.(g)
                 𝐱 = SVector(0.1,0.2)
                 kr,jr = axes(F)
@@ -36,7 +36,7 @@ using MultivariateOrthogonalPolynomials: ModalTrav
 
         @testset "DiskVectorPlan recovers every basis field: 𝐚=$𝐚, N=$N" for 𝐚 in weights, N in (7, 8)
             P = DiskVectorPlan(N, 𝐚)
-            𝐱 = grid(P)
+            𝐱 = zernikegrid(N)
             for m in -N:N, r in 1:2N
                 _diskvectordegree(m, r) ≤ N-1 || continue
                 V = DiskVector(m, 𝐚)
@@ -50,7 +50,7 @@ using MultivariateOrthogonalPolynomials: ModalTrav
         @testset "a vector field of degree N-1 can have mode N" begin
             N = 5
             P = DiskVectorPlan(N)
-            G = P * [(x[1] + im*x[2])^(N-1) * SVector(1, im) for x in grid(P)]
+            G = P * [(x[1] + im*x[2])^(N-1) * SVector(1, im) for x in zernikegrid(N)]
             @test size(G, 2) == _complexzernikecolumn(N)
             @test G[1, end] ≈ 1
             @test norm(G) ≈ 1
@@ -59,7 +59,7 @@ using MultivariateOrthogonalPolynomials: ModalTrav
         @testset "DiskVectorPlan(N, a) is DiskVectorPlan(N, (a,a)): a=$a" for a in (-1, 0, 1)
             𝐟 = 𝐱 -> SVector(exp(𝐱[1])*cos(𝐱[2]), sin(𝐱[1] + 2𝐱[2]))
             P, Q = DiskVectorPlan(9, a), DiskVectorPlan(9, (a,a))
-            F = 𝐟.(grid(P))
+            F = 𝐟.(zernikegrid(9))
             @test P * F == Q * F
             @test inv(P) * (P * F) == inv(Q) * (Q * F)
             @test DiskVectorIPlan(9, a) * (P * F) == inv(P) * (P * F)
@@ -71,7 +71,7 @@ using MultivariateOrthogonalPolynomials: ModalTrav
             f₂ = [cos(x*sin(3*(y-1))) for (x,y) in UnitDisk()]
             F₁ = ComplexZernike()[:,Block.(Base.OneTo(M+1))] \ f₁
             F₂ = ComplexZernike()[:,Block.(Base.OneTo(M+1))] \ f₂
-            G = disk2diskvector(F₁, F₂)
+            G = disk2diskvector(F₁.matrix, F₂.matrix)
             @test size(G) == (2size(F₁.matrix,1), size(F₁.matrix,2)+2)
             n = size(G,1)
             for 𝐱 in (SVector(0.1,0.2), SVector(-0.5,0.3), SVector(0.0,0.0), SVector(0.3,-0.6))
@@ -79,7 +79,7 @@ using MultivariateOrthogonalPolynomials: ModalTrav
                 @test 𝐯 ≈ [f₁[𝐱], f₂[𝐱]]
             end
             P = DiskVectorPlan(M+1)
-            @test P * [SVector(f₁[𝐱], f₂[𝐱]) for 𝐱 in grid(P)] ≈ G
+            @test P * [SVector(f₁[𝐱], f₂[𝐱]) for 𝐱 in zernikegrid(M+1)] ≈ G
             @test_throws AssertionError disk2diskvector(F₁.matrix, F₂.matrix[:,1:end-1])
         end
 
@@ -111,22 +111,18 @@ using MultivariateOrthogonalPolynomials: ModalTrav
         end
 
         @testset "ComplexZernikeITransform: a=$a, N=$N" for a in (0, 1), N in (7, 8)
-            Pⁱ = ComplexZernikeITransform(N, a)
+            Pⁱ = ComplexZernikeITransform(N, 0, a)
             P = inv(Pⁱ)
             Ñ = N ÷ 2 + 1
             F = [2(k-1) + abs(_complexzernikemode(c)) ≤ N-1 ? cos(k + 2c) + im*sin(3k - c) : 0.0im for k = 1:Ñ, c = 1:4Ñ-3]
             vals = Pⁱ * F
-            @test size(vals) == size(grid(Pⁱ))
+            @test size(vals) == size(zernikegrid(N))
             Z = ComplexZernike{ComplexF64}(0, a)
             for (k, j) in ((1,1), (2,3), (Ñ, 4Ñ-3))
-                𝐱 = grid(Pⁱ)[k,j]
+                𝐱 = zernikegrid(N)[k,j]
                 @test vals[k,j] ≈ sum(Z[𝐱, Block.(1:N)] .* ModalTrav(F)[Block.(1:N)])
             end
-            @test (P * vals).matrix ≈ F
-            @test Pⁱ * F[1:2, 1:5] ≈ Pⁱ * [F[1:2, 1:5] zeros(2, 4Ñ-8); zeros(Ñ-2, 4Ñ-3)]
-            F_high = zeros(ComplexF64, Ñ+1, 4Ñ+1)
-            F_high[end, end] = F_high[Ñ, 4Ñ-3] = 1 # degrees above 2Ñ-2 are ignored
-            @test Pⁱ * F_high == zero(vals)
+            @test (P * vals) ≈ F
             @test Pⁱ * (P * vals) ≈ vals # P fills the ignored entries with rounding errors
         end
 
@@ -136,29 +132,27 @@ using MultivariateOrthogonalPolynomials: ModalTrav
             F₂ = [sin(2k - c) + im*cos(k + c) for k = 1:n, c = 1:ncols]
             G = disk2diskvector(F₁, F₂)
             F̃₁, F̃₂ = diskvector2disk(G)
-            @test size(F̃₁) == size(F̃₂) == (n, ncols+4)
-            @test F̃₁ ≈ [F₁ zeros(n, 4)]
-            @test F̃₂ ≈ [F₂ zeros(n, 4)]
+            @test size(F̃₁) == size(F̃₂) == (n, ncols)
+            @test F̃₁ ≈ F₁
+            @test F̃₂ ≈ F₂
             G = [cos(r + j) + im*sin(2r - j) for r = 1:2n, j = 1:ncols]
-            @test disk2diskvector(diskvector2disk(G)...) ≈ [G zeros(2n, 4)]
+            @test disk2diskvector(diskvector2disk(G)...)[:,1:end-4] ≈ G[:,1:end-4]
         end
 
         @testset "DiskVectorIPlan: 𝐚=$𝐚, N=$N" for 𝐚 in weights, N in (7, 8)
             P = DiskVectorPlan(N, 𝐚)
             Pⁱ = inv(P)
-            @test grid(Pⁱ) == grid(P)
             Ñ = N ÷ 2 + 1
             G = [_diskvectordegree(_complexzernikemode(j), r) ≤ N-1 ? cos(r + 2j) + im*sin(3r - j) : 0.0im for r = 1:2Ñ, j = 1:4Ñ-1]
             𝐅 = Pⁱ * G
             @test P * 𝐅 ≈ G
             for (k, j) in ((1,1), (2,3), (Ñ, 4Ñ-3))
-                𝐱 = grid(P)[k,j]
+                𝐱 = zernikegrid(N)[k,j]
                 @test 𝐅[k,j] ≈ sum(sum(DiskVector(_complexzernikemode(c), 𝐚)[𝐱, 1:2Ñ] .* G[:,c]) for c in axes(G,2))
             end
             𝐟 = 𝐱 -> SVector(exp(𝐱[1])*cos(𝐱[2]), sin(𝐱[1] + 2𝐱[2]))
             P₄₁ = DiskVectorPlan(41, 𝐚)
-            @test inv(P₄₁) * (P₄₁ * 𝐟.(grid(P₄₁))) ≈ 𝐟.(grid(P₄₁))
-            @test Pⁱ * G[1:3, 1:5] ≈ Pⁱ * [G[1:3, 1:5] zeros(3, 4Ñ-6); zeros(2Ñ-3, 4Ñ-1)]
+            @test inv(P₄₁) * (P₄₁ * 𝐟.(zernikegrid(41))) ≈ 𝐟.(zernikegrid(41))
             G_high = zeros(ComplexF64, 2Ñ, 4Ñ-1)
             G_high[2, end] = 1 # type-2 element of degree 2Ñ in mode 2Ñ-1, which is ignored
             @test Pⁱ * (G + G_high) ≈ 𝐅
@@ -166,7 +160,7 @@ using MultivariateOrthogonalPolynomials: ModalTrav
 
         @testset "weighted DiskVectorPlan recovers every weighted field: 𝐚=$𝐚, N=$N" for 𝐚 in ((0,1), (1,0), (1,1)), N in (7, 8)
             P = DiskVectorPlan(N, 𝐚; weighted=true)
-            𝐱 = grid(P)
+            𝐱 = zernikegrid(N)
             for m in -N:N, r in 1:2N
                 _diskvectordegree(m, r, 𝐚) ≤ N-1 || continue
                 W = Weighted(DiskVector(m, 𝐚))
@@ -181,7 +175,6 @@ using MultivariateOrthogonalPolynomials: ModalTrav
             P = DiskVectorPlan(N, 𝐚; weighted=true)
             Pⁱ = inv(P)
             @test Pⁱ.weighted
-            @test grid(Pⁱ) == grid(P)
             Ñ = N ÷ 2 + 1
             G = [_diskvectordegree(_complexzernikemode(j), r, 𝐚) ≤ N-1 ? cos(r + 2j) + im*sin(3r - j) : 0.0im for r = 1:2Ñ, j = 1:4Ñ-1]
             𝐅 = Pⁱ * G
@@ -189,7 +182,7 @@ using MultivariateOrthogonalPolynomials: ModalTrav
             @test inv(Pⁱ) * 𝐅 ≈ G
             @test DiskVectorIPlan(N, 𝐚; weighted=true) * G ≈ 𝐅
             for (k, j) in ((1,1), (2,3), (Ñ, 4Ñ-3))
-                𝐱 = grid(P)[k,j]
+                𝐱 = zernikegrid(N)[k,j]
                 @test 𝐅[k,j] ≈ sum(sum(Weighted(DiskVector(_complexzernikemode(c), 𝐚))[𝐱, r] * G[r,c] for r in axes(G,1)) for c in axes(G,2))
             end
             G_high = zeros(ComplexF64, 2Ñ, 4Ñ-1)
@@ -199,7 +192,7 @@ using MultivariateOrthogonalPolynomials: ModalTrav
             𝐟 = 𝐱 -> (1 - 𝐱[1]^2 - 𝐱[2]^2)^𝐚[1] * exp(𝐱[1])*cos(𝐱[2]) * SVector(𝐱[1], 𝐱[2]) + (1 - 𝐱[1]^2 - 𝐱[2]^2)^𝐚[2] * sin(𝐱[1]) * SVector(-𝐱[2], 𝐱[1]) +
                 (1 - 𝐱[1]^2 - 𝐱[2]^2) * SVector(sin(𝐱[1] + 2𝐱[2]), 𝐱[1]^2)
             P₄₁ = DiskVectorPlan(41, 𝐚; weighted=true)
-            @test inv(P₄₁) * (P₄₁ * 𝐟.(grid(P₄₁))) ≈ 𝐟.(grid(P₄₁))
+            @test inv(P₄₁) * (P₄₁ * 𝐟.(zernikegrid(41))) ≈ 𝐟.(zernikegrid(41))
         end
 
         @testset "mass matrices between DiskVector bases: m=$m" for m in (-2, 0, 1)
@@ -240,11 +233,11 @@ using MultivariateOrthogonalPolynomials: ModalTrav
             for (𝐚, 𝐟, condition) in zip(weights, fields, conditions)
                 # the transform is exact up to rounding for a field of high enough degree
                 Q = DiskVectorPlan(41, 𝐚; weighted=true)
-                @test inv(Q) * (Q * 𝐟.(grid(Q))) ≈ 𝐟.(grid(Q))
+                @test inv(Q) * (Q * 𝐟.(zernikegrid(41))) ≈ 𝐟.(zernikegrid(41))
 
                 # with only a few coefficients the boundary condition still holds, unlike for the unweighted basis
                 P, P₀ = DiskVectorPlan(9, 𝐚; weighted=true), DiskVectorPlan(9)
-                G, G₀ = P * 𝐟.(grid(P)), P₀ * 𝐟.(grid(P₀))
+                G, G₀ = P * 𝐟.(zernikegrid(9)), P₀ * 𝐟.(zernikegrid(9))
                 𝐟ₙ = sum(Weighted(DiskVector((-1)^iseven(j) * j ÷ 2, 𝐚))[𝐲, r] * G[r, j] for r in axes(G, 1), j in axes(G, 2))
                 𝐟₀ = sum(DiskVector((-1)^iseven(j) * j ÷ 2)[𝐲, r] * G₀[r, j] for r in axes(G₀, 1), j in axes(G₀, 2))
                 for c in condition
@@ -267,19 +260,19 @@ using MultivariateOrthogonalPolynomials: ModalTrav
             # Only the first two elements of DiskVector(m, (-1,-1)) are nonzero on the boundary. For m ≠ 0 they are exp(im*m*θ)
             # times (1, im*sign(m)) and (1, -im*sign(m)) in polar components, and for m = 0 they are 𝐞_r and 𝐞_θ.
             P = DiskVectorPlan(M+1, -1)
-            G = P * 𝐟.(grid(P))
+            G = P * 𝐟.(zernikegrid(M+1))
             u_r = θ -> sum((m=(-1)^iseven(j) * j ÷ 2; (iszero(m) ? G[1, j] : G[1, j] + G[2, j]) * cis(m*θ)) for j in axes(G, 2))
             u_θ = θ -> sum((m=(-1)^iseven(j) * j ÷ 2; (iszero(m) ? G[2, j] : im*sign(m)*(G[1, j] - G[2, j])) * cis(m*θ)) for j in axes(G, 2))
             @test u_r.(θ) ≈ f_r.(θ)
             @test u_θ.(θ) ≈ f_θ.(θ)
 
             # so a field that vanishes on the boundary has no coefficients in the first two rows
-            @test norm((P*[(1-𝐱[1]^2-𝐱[2]^2)*𝐟(𝐱) for 𝐱 in grid(P)])[1:2, :]) ≤ 1e-13
+            @test norm((P*[(1-𝐱[1]^2-𝐱[2]^2)*𝐟(𝐱) for 𝐱 in zernikegrid(M+1)])[1:2, :]) ≤ 1e-13
 
             # Only the first element of DiskVector(m, (-1,0)) has a normal component on the boundary, and only the first
             # (the second for m = 0) of DiskVector(m, (0,-1)) has a tangential one.
-            G_n = DiskVectorPlan(M+1, (-1, 0)) * 𝐟.(grid(P))
-            G_t = DiskVectorPlan(M+1, (0, -1)) * 𝐟.(grid(P))
+            G_n = DiskVectorPlan(M+1, (-1, 0)) * 𝐟.(zernikegrid(M+1))
+            G_t = DiskVectorPlan(M+1, (0, -1)) * 𝐟.(zernikegrid(M+1))
             # the normal and tangential components on the boundary, each from a single row
             n_r = θ -> sum((m=(-1)^iseven(j) * j ÷ 2; (iszero(m) ? G_n[1, j] : G_n[1, j]/2) * cis(m*θ)) for j in axes(G_n, 2))
             t_θ = θ -> sum((m=(-1)^iseven(j) * j ÷ 2; (iszero(m) ? G_t[2, j] : im*sign(m)*G_t[1, j]/2) * cis(m*θ)) for j in axes(G_t, 2))
@@ -310,17 +303,17 @@ using MultivariateOrthogonalPolynomials: ModalTrav
                 G[:,j] = (DiskVector(m, (1,0)) \ grad(DiskBasis(m)))[1:2n+2, 1:n] * C[:,j]
             end
             Pⁱ = DiskVectorIPlan(N+2, (1,0)) # evaluates the coefficients on a grid
-            @test Pⁱ * G ≈ ∇u.(grid(Pⁱ))
+            @test Pⁱ * G ≈ ∇u.(zernikegrid(N+2))
 
             # curl: the vector transform gives the coefficients of 𝐟 in DiskVector(m, (1,0))
             P = DiskVectorPlan(N, (1,0))
-            F = P * 𝐟.(grid(P))
-            H = zeros(ComplexF64, size(F,1) ÷ 2 + 1, size(F,2))
-            for j in axes(F,2) # Put coefficients of curl𝐟 into H
+            F = P * 𝐟.(zernikegrid(N))
+            H = zeros(ComplexF64, size(F,1) ÷ 2, size(F,2)-2)
+            for j in axes(H,2) # Put coefficients of curl𝐟 into H
                 H[:,j] = coefficients(curl(DiskVector((-1)^iseven(j) * j ÷ 2, (1,0))))[axes(H,1), axes(F,1)] * F[:,j]
             end
-            Sⁱ = ComplexZernikeITransform(N+2, 1) # evaluates the coefficients in DiskBasis(m, 1) on a grid
-            @test Sⁱ * H ≈ curl𝐟.(grid(Sⁱ))
+            Sⁱ = ComplexZernikeITransform(N, 0, 1) # evaluates the coefficients in DiskBasis(m, 1) on a grid
+            @test Sⁱ * H ≈ curl𝐟.(zernikegrid(N))
 
             # and curl(grad(u)) == 0 holds exactly for the coefficient matrices
             for m in -3:3
@@ -361,7 +354,7 @@ using MultivariateOrthogonalPolynomials: ModalTrav
 
         @testset "DiskMatrixPlan recovers every element: N=$N" for N in (5, 6, 7, 8)
             P = DiskMatrixPlan(N)
-            𝐱 = grid(P)
+            𝐱 = zernikegrid(N)
             Ñ = N ÷ 2 + 1
             for r in 1:4Ñ
                 _diskmatrixdegree(r) ≤ N-1 || continue
@@ -390,13 +383,13 @@ using MultivariateOrthogonalPolynomials: ModalTrav
                 @test sum(C(𝐱,r)*g[r] for r in eachindex(g)) ≈ A(𝐱)
             end
             P = DiskMatrixPlan(M+1)
-            @test P * [A(SVector(𝐱[1],𝐱[2])) for 𝐱 in grid(P)] ≈ g
+            @test P * [A(SVector(𝐱[1],𝐱[2])) for 𝐱 in zernikegrid(M+1)] ≈ g
             @test_throws AssertionError disk2diskmatrix(F₁₁.matrix, F₁₂.matrix, F₂₁.matrix, F₂₂.matrix[:,1:end-1])
         end
 
         @testset "radial coefficients" begin
             P = DiskMatrixPlan(41)
-            g = P * [A(SVector(𝐱[1],𝐱[2])) for 𝐱 in grid(P)]
+            g = P * [A(SVector(𝐱[1],𝐱[2])) for 𝐱 in zernikegrid(41)]
             n = length(g) ÷ 4
             for t in (0.0, 0.3, 0.8, 1.0)
                 @test sum(g[4k-3]*jacobip(k-1,0,0,2t-1) for k in 1:n) ≈ α(t)
@@ -409,7 +402,7 @@ using MultivariateOrthogonalPolynomials: ModalTrav
             @testset "real symmetric has δ = 0" begin
                 W = 𝐱 -> (t = norm(𝐱)^2; α(t)*I + β(t)*Σ(𝐱) + γ(t)*ρ(π/2)*Σ(𝐱))
                 @test all(𝐱 -> W(𝐱) ≈ W(𝐱)', (SVector(0.3,0.2), SVector(-0.1,0.7)))
-                @test norm((P * [W(SVector(𝐱[1],𝐱[2])) for 𝐱 in grid(P)])[2:4:end]) ≤ 1e-13
+                @test norm((P * [W(SVector(𝐱[1],𝐱[2])) for 𝐱 in zernikegrid(41)])[2:4:end]) ≤ 1e-13
             end
         end
 
@@ -417,17 +410,17 @@ using MultivariateOrthogonalPolynomials: ModalTrav
             N = 9
             P = DiskMatrixPlan(N)
             B = 𝐱 -> sum(cos(r)*C(𝐱,r) for r in 1:18)
-            Bs = [B(SVector(𝐱[1],𝐱[2])) for 𝐱 in grid(P)]
+            Bs = [B(SVector(𝐱[1],𝐱[2])) for 𝐱 in zernikegrid(N)]
             S = @SMatrix [1 0; 0 -1]
             H = @SMatrix [0 1; 1 0]
             for Y in (𝐱 -> S, 𝐱 -> H, 𝐱 -> 𝐱[1]*ρ(π/2), 𝐱 -> (@SMatrix [𝐱[1] 𝐱[2]; 𝐱[2] -𝐱[1]]), 𝐱 -> 𝐱[1]*𝐱[2]*I, 𝐱 -> real((𝐱[1]+im*𝐱[2])^4)*Σ(𝐱))
-                @test P * (Bs + [Y(SVector(𝐱[1],𝐱[2])) for 𝐱 in grid(P)]) ≈ P * Bs
+                @test P * (Bs + [Y(SVector(𝐱[1],𝐱[2])) for 𝐱 in zernikegrid(N)]) ≈ P * Bs
             end
 
             @testset "giving the Frobenius projection" begin
                 f = 𝐱 -> @SMatrix [exp(𝐱[1]) sin(𝐱[2]); 𝐱[1]*𝐱[2] cos(𝐱[1]+𝐱[2])]
                 Q = DiskMatrixPlan(41)
-                g = Q * [f(SVector(𝐱[1],𝐱[2])) for 𝐱 in grid(Q)]
+                g = Q * [f(SVector(𝐱[1],𝐱[2])) for 𝐱 in zernikegrid(41)]
                 for r in 1:8
                     @test g[r] ≈ sum(tr(C(𝐱,r)'f(SVector(𝐱[1],𝐱[2]))) for 𝐱 in UnitDisk())/sum(tr(C(𝐱,r)'C(𝐱,r)) for 𝐱 in UnitDisk()) atol=1e-12
                 end
@@ -444,31 +437,9 @@ using MultivariateOrthogonalPolynomials: ModalTrav
             @test diskmatrix2disk(g[1:4n-1])[1][n,4] == g[4n-1]/2
         end
 
-        @testset "DiskMatrixIPlan: N=$N" for N in (7, 8)
-            P = DiskMatrixPlan(N)
-            Pⁱ = inv(P)
-            @test Pⁱ isa DiskMatrixIPlan
-            @test inv(Pⁱ) isa DiskMatrixPlan
-            @test grid(Pⁱ) == grid(P)
-            Ñ = N ÷ 2 + 1
-            g = [_diskmatrixdegree(r) ≤ N-1 ? cos(r) + im*sin(3r) : 0.0im for r = 1:4Ñ]
-            𝐅 = Pⁱ * g
-            @test size(𝐅) == size(grid(P))
-            @test P * 𝐅 ≈ g
-            @test DiskMatrixIPlan(N) * g == 𝐅
-            for (k, j) in ((1,1), (2,3), (Ñ, 4Ñ-3))
-                𝐱 = grid(P)[k,j]
-                @test 𝐅[k,j] ≈ sum(C(𝐱,r)*g[r] for r in 1:4Ñ)
-            end
-            @test Pⁱ * g[1:6] ≈ Pⁱ * [g[1:6]; zeros(4Ñ-6)]
-            g_high = zeros(ComplexF64, 4Ñ)
-            g_high[end] = 1 # ρ(π/2)*Σ with degree 2Ñ, which is ignored
-            @test Pⁱ * (g + g_high) ≈ 𝐅
-        end
-
         @testset "round trip" begin
             P = DiskMatrixPlan(41)
-            𝐅 = [A(SVector(𝐱[1],𝐱[2])) for 𝐱 in grid(P)]
+            𝐅 = [A(SVector(𝐱[1],𝐱[2])) for 𝐱 in zernikegrid(41)]
             @test inv(P) * (P * 𝐅) ≈ 𝐅
         end
 
@@ -476,7 +447,7 @@ using MultivariateOrthogonalPolynomials: ModalTrav
             Q = DiskVector(m)
             𝐱 = SVector(0.3, -0.45)
             P = DiskMatrixPlan(41)
-            g = P * [A(SVector(𝐱[1],𝐱[2])) for 𝐱 in grid(P)]
+            g = P * [A(SVector(𝐱[1],𝐱[2])) for 𝐱 in zernikegrid(41)]
             M = equivariantmultiplication(Q, g)
             N = 70
             Mₙ = M[1:N,1:N]
@@ -515,7 +486,7 @@ using MultivariateOrthogonalPolynomials: ModalTrav
 
             # the same from values sampled on a grid
             P = DiskVectorPlan(M+1)
-            𝐅 = [SVector(f₁[𝐲], f₂[𝐲]) for 𝐲 in grid(P)]
+            𝐅 = [SVector(f₁[𝐲], f₂[𝐲]) for 𝐲 in zernikegrid(M+1)]
             @test P * 𝐅 ≈ G
             @test inv(P) * G ≈ 𝐅
 
@@ -540,7 +511,7 @@ using MultivariateOrthogonalPolynomials: ModalTrav
 
             # the same from values sampled on a grid
             P = DiskMatrixPlan(M+1)
-            𝐀 = [A(SVector(𝐲[1],𝐲[2])) for 𝐲 in grid(P)]
+            𝐀 = A.(zernikegrid(M+1))
             @test P * 𝐀 ≈ g
             @test inv(P) * g ≈ 𝐀
         end

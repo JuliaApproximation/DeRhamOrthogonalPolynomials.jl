@@ -597,6 +597,7 @@ DiskVector(C::DiskCurlFree{T}) where T = DiskVector{T}(C)
 
 @simplify function *(Cc::QuasiAdjoint{<:Any, <:DiskCurlFree}, D::DiskCurlFree)
     C = parent(Cc)
+    C == D && return grammatrix(C)
     P,Q = DiskVector(C),DiskVector(D)
     (P\C)' * (P'Q) * (Q\D)
 end
@@ -606,7 +607,23 @@ end
     (Qc*P) * (P\C)
 end
 
-grammatrix(C::DiskCurlFree) = C'C
+"""
+    grammatrix(C::DiskCurlFree)
+
+is the (unweighted) Gram matrix of `C = DiskCurlFree(m, -1)`, which is diagonal: for `j ≥ 1` the
+gradients are of polynomials vanishing on the boundary, so `⟨∇u, ∇v⟩ = -⟨u, Δv⟩` (and the `j = 0` term `zᵇ` is harmonic).
+Other values of `a` are not supported.
+"""
+function grammatrix(C::DiskCurlFree{T}) where T
+    (; m, a) = C
+    a == -1 || throw(ArgumentError("grammatrix(::DiskCurlFree) is only supported for a = -1, got a = $a"))
+    b = abs(m)
+    # column k is ∇ of the degree j = k-1+iszero(m) element of DiskBasis(m, -1)
+    Diagonal(unitblocks(_diskcurlfree_normsqr.(T, Int(iszero(b)):∞, b)))
+end
+
+# squared norm of ∇ of the degree j element of DiskBasis(m, -1), b = |m|: 4π(j+b)^2/(2j+b) for j ≥ 1, and 2πb for j = 0
+_diskcurlfree_normsqr(::Type{T}, j, b) where T = convert(T,π) * (iszero(j) ? 2b : 4(j+b)^2/convert(T,2j+b))
 
 # a column of a basis is expanded exactly, avoiding a transform. This means
 # inner products of columns, e.g. C[:,k]'C[:,j], are computed via the Gram matrix.
@@ -650,11 +667,11 @@ represents the gradient of `Z = DiskBasis(m, a)`, expanded in `DiskCurlFree(m, (
 function grad(Z::DiskBasis{T}) where {T}
     (; a, m) = Z
     # the identity, shifted when m = 0 as the gradient of the constant vanishes
+    G = DiskCurlFree{T}(m, a)
     if iszero(m)
-        # data is a Fill (not Ones') so that broadcasting, e.g. 2π * grad(Z)'grad(Z), stays lazy
-        ApplyQuasiArray(*, DiskCurlFree{T}(m, a), _BandedBlockBandedMatrix(Ones{T}((Base.OneTo(1), blockedrange(Ones{Int}(∞)))), axes(Z,2), (-1,1), (0,0)))
+        ApplyQuasiArray(*, G, unitblocks(OffDiagonal(Ones{T}(∞), 1)))
     else
-        DiskCurlFree{T}(m, a)
+        G
     end
 end
 

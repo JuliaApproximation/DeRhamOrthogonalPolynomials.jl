@@ -1,7 +1,7 @@
 module DeRhamOrthogonalPolynomials
 
 using ClassicalOrthogonalPolynomials, QuasiArrays, LinearAlgebra, StaticArrays, BlockArrays, HarmonicOrthogonalPolynomials, MultivariateOrthogonalPolynomials, LazyArrays, FillArrays, LazyBandedMatrices, InfiniteArrays, BlockBandedMatrices, ContinuumArrays, DomainSets, Infinities, ArrayLayouts
-using MultivariateOrthogonalPolynomials: ModalTrav
+using MultivariateOrthogonalPolynomials: ModalTrav, ComplexZernikeITransform, ComplexZernikeTransform
 using ClassicalOrthogonalPolynomials: Clenshaw, recurrencecoefficients
 using LazyArrays: paddeddata
 
@@ -17,6 +17,7 @@ using LazyArrays: ApplyLayout, arguments
 using LazyBandedMatrices: _blockinterlace_axes, BlockBroadcastVector
 using LinearAlgebra: norm_sqr
 using HarmonicOrthogonalPolynomials: sphericalharmonicnormalization
+using FillArrays: OffDiagonal
 
 export DiskVector, DiskMatrix, DiskVectorPlan, DiskVectorIPlan, disk2diskvector, diskvector2disk, ComplexZernikeITransform, DiskZernikeWeight, DiskVectorWeight, grad, curl, divergence, rotgrad,
             DiskBasis, DiskCurlFree, DiskWeightedCurlFree, DiskCoWeightedCurlFree
