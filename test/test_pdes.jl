@@ -1,5 +1,5 @@
 using DeRhamOrthogonalPolynomials, ClassicalOrthogonalPolynomials, MultivariateOrthogonalPolynomials, BlockArrays, SpecialFunctions, FastGaussQuadrature, StaticArrays, BlockBandedMatrices, BandedMatrices, SparseArrays, LinearAlgebra, ForwardDiff, Test
-using ContinuumArrays: grid
+using MultivariateOrthogonalPolynomials: zernikegrid
 
 @testset "PDEs" begin
     @testset "Disk" begin
@@ -14,7 +14,7 @@ using ContinuumArrays: grid
             Σ = 𝐱 -> @SMatrix [𝐱[1]^2-𝐱[2]^2 2𝐱[1]*𝐱[2]; 2𝐱[1]*𝐱[2] 𝐱[2]^2-𝐱[1]^2]
             A = 𝐱 -> (t = sum(abs2,𝐱); (2+exp(t))*I + cos(3t)/2*ρ(π/2) + sin(2t)/2*Σ(𝐱) + ρ(π/2)*Σ(𝐱)/(2+t))
             P = DiskMatrixPlan(41)
-            g = P * [A(SVector(𝐱[1],𝐱[2])) for 𝐱 in grid(P)]
+            g = P * [A(SVector(𝐱[1],𝐱[2])) for 𝐱 in zernikegrid(41)]
 
             @testset "stiffness matrix: m=$m" for m in -2:2
                 W = Weighted(DiskBasis(m,1))

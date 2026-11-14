@@ -70,12 +70,10 @@ function disk2diskvector(F₁::AbstractMatrix, F₂::AbstractMatrix)
     G
 end
 
-disk2diskvector(F₁::ModalTrav, F₂::ModalTrav) = disk2diskvector(F₁.matrix, F₂.matrix)
-
 """
     DiskVectorPlan(N, 𝐚=(0,0); weighted=false)
 
-transforms from `grid(P)` to the coefficients in `DiskVector(m, 𝐚)` for all `m`
+transforms from `zernikegrid(N)` to the coefficients in `DiskVector(m, 𝐚)` for all `m`
 """
 struct DiskVectorPlan{T,PLAN,CONV}
     plan::PLAN
@@ -87,14 +85,12 @@ end
 
 function DiskVectorPlan{T}(N::Integer, 𝐚::NTuple{2,Integer}; weighted::Bool=false) where T<:Real
     a = _diskvectorplanweight(𝐚, weighted)
-    pl = plan_transform(ComplexZernike{Complex{T}}(0, a), (Block(N),))
+    pl = ComplexZernikeTransform{T}(N, 0, a)
     R = _diskvectorconversions(T, 𝐚, weighted, N)
     DiskVectorPlan{T,typeof(pl),typeof(R)}(pl, N, 𝐚, weighted, R)
 end
 DiskVectorPlan{T}(N::Integer, a::Integer=0; kws...) where T<:Real = DiskVectorPlan{T}(N, (a,a); kws...)
 DiskVectorPlan(N::Integer, 𝐚=0; kws...) = DiskVectorPlan{Float64}(N, 𝐚; kws...)
-
-grid(P::DiskVectorPlan{T}) where T = grid(ComplexZernike{Complex{T}}(), Block(P.N))
 
 function *(P::DiskVectorPlan, F::AbstractMatrix{<:StaticVector{2}})
     G = disk2diskvector(P.plan * getindex.(F, 1), P.plan * getindex.(F, 2))
@@ -111,45 +107,6 @@ end
 ## Inverse transforms
 
 """
-    ComplexZernikeITransform{T}(N, a=0)
-
-is the inverse of `plan_transform(ComplexZernike(0, a), (Block(N),))`, ignoring coefficients of degree above `2(N ÷ 2)`.
-"""
-struct ComplexZernikeITransform{T,PLAN}
-    plan::PLAN
-    N::Int
-    a::Int
-end
-
-function ComplexZernikeITransform{T}(N::Integer, a::Integer=0) where T<:Real
-    pl = MultivariateOrthogonalPolynomials.ZernikeITransform{T}(N, 0, a)
-    ComplexZernikeITransform{T,typeof(pl)}(pl, N, a)
-end
-ComplexZernikeITransform(N::Integer, a::Integer=0) = ComplexZernikeITransform{Float64}(N, a)
-
-grid(P::ComplexZernikeITransform{T}) where T = grid(ComplexZernike{Complex{T}}(), Block(P.N))
-inv(P::ComplexZernikeITransform{T}) where T = plan_transform(ComplexZernike{Complex{T}}(0, P.a), (Block(P.N),))
-
-function *(P::ComplexZernikeITransform{T}, F::AbstractMatrix) where T
-    # the entries of F of degree at most 2Ñ-2, in the Ñ × (4Ñ-3) coefficient matrix of the transform
-    Ñ = P.N ÷ 2 + 1
-    C = zeros(Complex{T}, Ñ, 4Ñ-3)
-    for c in axes(F,2), k in axes(F,1)
-        2(k-1) + abs(_complexzernikemode(c)) ≤ 2Ñ-2 && (C[k,c] = F[k,c])
-    end
-    # undo MultivariateOrthogonalPolynomials._zernike2complex with α = 1/2, then the normalisation
-    A = similar(C)
-    A[:,1] = C[:,1]
-    for j in 2:2:size(C,2)
-        A[:,j] = im*(C[:,j+1] - C[:,j])
-        A[:,j+1] = C[:,j] + C[:,j+1]
-    end
-    A ./= MultivariateOrthogonalPolynomials._zernikemodalconstant(T, size(A), 0, P.a)
-    P.plan * ModalTrav(real(A)) + im * (P.plan * ModalTrav(imag(A)))
-end
-*(P::ComplexZernikeITransform, F::ModalTrav) = P * F.matrix
-
-"""
     diskvector2disk(G)
 
 is the inverse of `disk2diskvector`, converting the coefficients `G` in `DiskVector(m, (a,a))`, with column `j` for
@@ -158,8 +115,8 @@ is the inverse of `disk2diskvector`, converting the coefficients `G` in `DiskVec
 function diskvector2disk(G::AbstractMatrix)
     n,ncols = cld(size(G,1), 2), size(G,2)
     G = pad(G, 2n, ncols)
-    F₋ = zeros(complex(eltype(G)), n, ncols+2) # u₁ - im*u₂
-    F₊ = zeros(complex(eltype(G)), n, ncols+2) # u₁ + im*u₂
+    F₋ = zeros(complex(eltype(G)), n, ncols-2) # u₁ - im*u₂
+    F₊ = zeros(complex(eltype(G)), n, ncols-2) # u₁ + im*u₂
     for j in 1:ncols
         m = _complexzernikemode(j)
         if iszero(m)
@@ -171,9 +128,15 @@ function diskvector2disk(G::AbstractMatrix)
         else
             A,B = m > 0 ? (F₋,F₊) : (F₊,F₋)
             c₁,c₂ = _complexzernikecolumn(m - sign(m)), _complexzernikecolumn(m + sign(m))
-            for k in 1:n
-                A[k,c₁] = 2G[2k-1,j]
-                B[k,c₂] = 2G[2k,j]
+            if c₁ ≤ ncols-2
+                for k in 1:n
+                    A[k,c₁] = 2G[2k-1,j]
+                end
+            end
+            if c₂ ≤ ncols-2
+                for k in 1:n
+                    B[k,c₂] = 2G[2k,j]
+                end
             end
         end
     end
@@ -185,8 +148,8 @@ end
 
 is the inverse of `DiskVectorPlan(N, 𝐚; weighted)`, ignoring coefficients of degree above `2(N ÷ 2)`.
 """
-struct DiskVectorIPlan{T,PLAN,CONV}
-    plan::ComplexZernikeITransform{T,PLAN}
+struct DiskVectorIPlan{T,CONV}
+    plan::ComplexZernikeITransform{T}
     𝐚::NTuple{2,Int}
     weighted::Bool
     R::CONV
@@ -194,14 +157,13 @@ end
 
 function DiskVectorIPlan{T}(N::Integer, 𝐚::NTuple{2,Integer}; weighted::Bool=false) where T<:Real
     a = _diskvectorplanweight(𝐚, weighted)
-    DiskVectorIPlan(ComplexZernikeITransform{T}(N, a), 𝐚, weighted, _diskvectorconversions(T, 𝐚, weighted, N))
+    DiskVectorIPlan(ComplexZernikeITransform{T}(N, 0, a), 𝐚, weighted, _diskvectorconversions(T, 𝐚, weighted, N))
 end
 DiskVectorIPlan{T}(N::Integer, a::Integer=0; kws...) where T<:Real = DiskVectorIPlan{T}(N, (a,a); kws...)
 DiskVectorIPlan(N::Integer, 𝐚=0; kws...) = DiskVectorIPlan{Float64}(N, 𝐚; kws...)
 
-grid(P::DiskVectorIPlan) = grid(P.plan)
 inv(P::DiskVectorPlan{T}) where T =
-    DiskVectorIPlan(ComplexZernikeITransform{T}(P.N, _diskvectorplanweight(P.𝐚, P.weighted)), P.𝐚, P.weighted, P.R)
+    DiskVectorIPlan(inv(P.plan), P.𝐚, P.weighted, P.R)
 inv(P::DiskVectorIPlan{T}) where T = DiskVectorPlan{T}(P.plan.N, P.𝐚; weighted=P.weighted)
 
 function *(P::DiskVectorIPlan, G::AbstractMatrix)
@@ -277,7 +239,7 @@ end
 """
     DiskMatrixPlan(N)
 
-transforms from `grid(P)` to the coefficients of the equivariant part, as in `disk2diskmatrix`. It is exact up to degree `N-1`.
+transforms from `zernikegrid(N)` to the coefficients of the equivariant part, as in `disk2diskmatrix`. It is exact up to degree `N-1`.
 """
 struct DiskMatrixPlan{T,PLAN}
     plan::PLAN
@@ -290,8 +252,6 @@ function DiskMatrixPlan{T}(N::Integer) where T<:Real
 end
 DiskMatrixPlan(N::Integer) = DiskMatrixPlan{Float64}(N)
 
-grid(P::DiskMatrixPlan{T}) where T = grid(ComplexZernike{Complex{T}}(), Block(P.N))
-
 function *(P::DiskMatrixPlan, F::AbstractMatrix{<:StaticMatrix{2,2}})
     g = disk2diskmatrix(P.plan * getindex.(F, 1, 1), P.plan * getindex.(F, 1, 2), P.plan * getindex.(F, 2, 1), P.plan * getindex.(F, 2, 2))
     g[_diskmatrixdegree.(eachindex(g)) .> P.N-1] .= 0
@@ -303,18 +263,18 @@ end
 
 is the inverse of `DiskMatrixPlan(N)`, ignoring coefficients of degree above `2(N ÷ 2)`.
 """
-struct DiskMatrixIPlan{T,PLAN}
-    plan::ComplexZernikeITransform{T,PLAN}
+struct DiskMatrixIPlan{T}
+    plan::ComplexZernikeITransform{T}
 end
 
 DiskMatrixIPlan{T}(N::Integer) where T<:Real = DiskMatrixIPlan(ComplexZernikeITransform{T}(N))
 DiskMatrixIPlan(N::Integer) = DiskMatrixIPlan{Float64}(N)
 
-grid(P::DiskMatrixIPlan) = grid(P.plan)
 inv(P::DiskMatrixPlan{T}) where T = DiskMatrixIPlan{T}(P.N)
 inv(P::DiskMatrixIPlan{T}) where T = DiskMatrixPlan{T}(P.plan.N)
 
 function *(P::DiskMatrixIPlan, g::AbstractVector)
     F₁₁,F₁₂,F₂₁,F₂₂ = diskmatrix2disk(g)
-    SMatrix{2,2}.(P.plan * F₁₁, P.plan * F₂₁, P.plan * F₁₂, P.plan * F₂₂)
+    SMatrix{2,2}.(P.plan * pad(F₁₁, size(P.plan)...), P.plan * pad(F₂₁, size(P.plan)...),
+                  P.plan * pad(F₁₂, size(P.plan)...), P.plan * pad(F₂₂, size(P.plan)...))
 end

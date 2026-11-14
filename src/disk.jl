@@ -667,12 +667,11 @@ represents the gradient of `Z = DiskBasis(m, a)`, expanded in `DiskCurlFree(m, (
 function grad(Z::DiskBasis{T}) where {T}
     (; a, m) = Z
     # the identity, shifted when m = 0 as the gradient of the constant vanishes
+    G = DiskCurlFree{T}(m, a)
     if iszero(m)
-        # a banded (rather than BandedBlockBanded) shift so that products with the diagonal Gram matrix,
-        # e.g. 2π * grad(Z)'grad(Z), stay lazy
-        ApplyQuasiArray(*, DiskCurlFree{T}(m, a), unitblocks(BandedMatrix(1 => Ones{T}(∞))))
+        ApplyQuasiArray(*, G, unitblocks(OffDiagonal(Ones{T}(∞), 1)))
     else
-        DiskCurlFree{T}(m, a)
+        G
     end
 end
 
