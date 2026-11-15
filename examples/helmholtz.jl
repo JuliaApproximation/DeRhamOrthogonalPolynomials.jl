@@ -1,5 +1,5 @@
 using DeRhamOrthogonalPolynomials, MultivariateOrthogonalPolynomials, StaticArrays, CairoMakie
-using MultivariateOrthogonalPolynomials: ComplexZernikeTransform, zernikegrid, ModalTrav
+using MultivariateOrthogonalPolynomials: ComplexZernikeTransform, zernikegrid
 
 diskcolumn(F, j) = (-1)^iseven(j) * j ÷ 2, F[1:(size(F,1) - (j+2) ÷ 4), j]
 

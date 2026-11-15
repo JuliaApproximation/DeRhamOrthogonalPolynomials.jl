@@ -712,9 +712,17 @@ end
                     if a ≥ 0 # orthogonal wrt DiskVectorWeight((a+1,a))
                         W = DiskVectorWeight((a+1,a))
                         @test isapproxdiagonal([sum(C[𝐱,k]'W[𝐱]*C[𝐱,j] for 𝐱 in UnitDisk()) for k=1:5, j=1:5])
+                        @test_throws ArgumentError grammatrix(C)
+                        @test_throws ArgumentError C'C
                     else
                         V = DiskVector(m)
+                        @test grammatrix(C) isa Diagonal
+                        @test C'C isa Diagonal
+                        @test axes(grammatrix(C)) == (axes(C,2), axes(C,2))
                         @test grammatrix(C)[1:5,1:5] ≈ (C'C)[1:5,1:5] ≈ [sum(C[𝐱,k]'C[𝐱,j] for 𝐱 in UnitDisk()) for k=1:5, j=1:5]
+                        P = DiskVector(C) # agrees with the Gram matrix computed via the conversion to DiskVector
+                        @test grammatrix(C)[1:20,1:20] ≈ ((P\C)' * grammatrix(P) * (P\C))[1:20,1:20]
+                        @test (2π * ∇'∇)[1:20,1:20] ≈ 2π * ((P\∇)' * grammatrix(P) * (P\∇))[1:20,1:20]
                         @test (V'C)[1:5,1:5] ≈ (C'V)[1:5,1:5]' ≈ [sum(V[𝐱,k]'C[𝐱,j] for 𝐱 in UnitDisk()) for k=1:5, j=1:5]
                         @test (V'∇)[1:5,1:5] ≈ (∇'V)[1:5,1:5]' ≈ [sum(V[𝐱,k]'∇[𝐱,j] for 𝐱 in UnitDisk()) for k=1:5, j=1:5]
                         # inner products of columns use the Gram matrix rather than a transform
