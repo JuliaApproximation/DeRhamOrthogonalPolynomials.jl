@@ -109,7 +109,8 @@ end
 Base.unsafe_getindex(P::DiskBasis, 𝐱::StaticVector{2}, j::Int) = zernike(P.m, j-1, P.a, 𝐱)
 function grammatrix(P::DiskBasis{T}) where T
     if P.a == 0
-        unitblocks(convert(T,π) * weightedgrammatrix(Jacobi{T}(0, abs(P.m)))/convert(T,2)^(abs(P.m)+1))
+        # unitblocks(convert(T,π) * weightedgrammatrix(Jacobi{T}(0, abs(P.m)))/convert(T,2)^(abs(P.m)+1))
+        Diagonal(convert(T,π) ./ (2*(0:∞) .+ (abs(P.m)+1)))
     else
         Q = DiskBasis{T}(P.m)
         R = Q \ P
