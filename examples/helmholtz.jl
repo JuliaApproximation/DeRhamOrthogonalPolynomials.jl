@@ -48,7 +48,7 @@ for j in axes(F,2)
     U[kr,j] = (Δ + ω^2*M) \ (R*𝐟)
 end
 
-contourf(first.(g), last.(g), real(ComplexZernikeITransform(N) * U);levels=200)
+contourf(first.(g), last.(g), real(ComplexZernikeITransform(N) * U);levels=20)
 
 
 u = ComplexZernike(-1)[:,axes( ModalTrav(U),1)] * ModalTrav(U)
