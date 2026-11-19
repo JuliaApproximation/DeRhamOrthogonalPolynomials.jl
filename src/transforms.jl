@@ -85,7 +85,7 @@ end
 
 function DiskVectorPlan{T}(N::Integer, 𝐚::NTuple{2,Integer}; weighted::Bool=false) where T<:Real
     a = _diskvectorplanweight(𝐚, weighted)
-    pl = ComplexZernikeTransform{T}(N, 0, a)
+    pl = ComplexZernikeTransform{T}(N, a)
     R = _diskvectorconversions(T, 𝐚, weighted, N)
     DiskVectorPlan{T,typeof(pl),typeof(R)}(pl, N, 𝐚, weighted, R)
 end
@@ -157,7 +157,7 @@ end
 
 function DiskVectorIPlan{T}(N::Integer, 𝐚::NTuple{2,Integer}; weighted::Bool=false) where T<:Real
     a = _diskvectorplanweight(𝐚, weighted)
-    DiskVectorIPlan(ComplexZernikeITransform{T}(N, 0, a), 𝐚, weighted, _diskvectorconversions(T, 𝐚, weighted, N))
+    DiskVectorIPlan(ComplexZernikeITransform{T}(N, a), 𝐚, weighted, _diskvectorconversions(T, 𝐚, weighted, N))
 end
 DiskVectorIPlan{T}(N::Integer, a::Integer=0; kws...) where T<:Real = DiskVectorIPlan{T}(N, (a,a); kws...)
 DiskVectorIPlan(N::Integer, 𝐚=0; kws...) = DiskVectorIPlan{Float64}(N, 𝐚; kws...)

@@ -37,7 +37,7 @@ contourf([u₀(𝐱) for 𝐱 in UnitDisk()])
 
 N = 100
 g = zernikegrid(N) # grid
-U₀ = ComplexZernikeTransform(N) * u₀.(g)
+U₀ = ComplexZernikeTransform(N, -1) * u₀.(g)
 
 
 h = 0.1

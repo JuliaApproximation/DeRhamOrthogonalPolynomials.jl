@@ -111,13 +111,13 @@ using MultivariateOrthogonalPolynomials: ModalTrav, zernikegrid
         end
 
         @testset "ComplexZernikeITransform: a=$a, N=$N" for a in (0, 1), N in (7, 8)
-            Pⁱ = ComplexZernikeITransform(N, 0, a)
+            Pⁱ = ComplexZernikeITransform(N, a)
             P = inv(Pⁱ)
             Ñ = N ÷ 2 + 1
             F = [2(k-1) + abs(_complexzernikemode(c)) ≤ N-1 ? cos(k + 2c) + im*sin(3k - c) : 0.0im for k = 1:Ñ, c = 1:4Ñ-3]
             vals = Pⁱ * F
             @test size(vals) == size(zernikegrid(N))
-            Z = ComplexZernike{ComplexF64}(0, a)
+            Z = ComplexZernike{ComplexF64}(a)
             for (k, j) in ((1,1), (2,3), (Ñ, 4Ñ-3))
                 𝐱 = zernikegrid(N)[k,j]
                 @test vals[k,j] ≈ sum(Z[𝐱, Block.(1:N)] .* ModalTrav(F)[Block.(1:N)])
@@ -312,7 +312,7 @@ using MultivariateOrthogonalPolynomials: ModalTrav, zernikegrid
             for j in axes(H,2) # Put coefficients of curl𝐟 into H
                 H[:,j] = coefficients(curl(DiskVector((-1)^iseven(j) * j ÷ 2, (1,0))))[axes(H,1), axes(F,1)] * F[:,j]
             end
-            Sⁱ = ComplexZernikeITransform(N, 0, 1) # evaluates the coefficients in DiskBasis(m, 1) on a grid
+            Sⁱ = ComplexZernikeITransform(N, 1) # evaluates the coefficients in DiskBasis(m, 1) on a grid
             @test Sⁱ * H ≈ curl𝐟.(zernikegrid(N))
 
             # and curl(grad(u)) == 0 holds exactly for the coefficient matrices
