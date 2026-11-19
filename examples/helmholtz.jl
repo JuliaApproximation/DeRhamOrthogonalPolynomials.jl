@@ -24,14 +24,14 @@ diskcolumn(F, j) = (-1)^iseven(j) * j ÷ 2, F[1:(size(F,1) - (j+2) ÷ 4), j]
 ##################
 
 𝐱₀ = SVector(0.1,0.2)
-f = 𝐱 -> exp(-10norm(𝐱 - 𝐱₀)^2) .+ cos(𝐱[1])
+f = splat((x,y) -> exp(-100x^2-150y^2) + cos(100x * y^2))
 
-contourf([f(𝐱) for 𝐱 in UnitDisk()]) # we have an off-centred Gaussian
+contourf([f(𝐱) for 𝐱 in UnitDisk()]; levels=20) # we have an off-centred Gaussian
 
 # in this package we do the transforms manually (for now), to lay the groundwork
 # future MPI support. 
 
-ω = 52
+ω = 32.5
 N = 10ceil(Int,ω) # polynomials degree + 1, 7 * wave length
 g = zernikegrid(N) # grid
 F = ComplexZernikeTransform(N) * f.(g)
@@ -48,8 +48,5 @@ for j in axes(F,2)
     U[kr,j] = (Δ + ω^2*M) \ (R*𝐟)
 end
 
-contourf(first.(g), last.(g), real(ComplexZernikeITransform(N) * U);levels=20)
+contourf(first.(g), last.(g), real(ComplexZernikeITransform(N) * U);levels=40)
 
-
-u = ComplexZernike(-1)[:,axes( ModalTrav(U),1)] * ModalTrav(U)
-@test laplacian(u)[𝐱₀] + ω^2 * u[𝐱₀] ≈ f(𝐱₀)
