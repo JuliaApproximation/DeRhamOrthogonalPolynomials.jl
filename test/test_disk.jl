@@ -106,6 +106,56 @@ end
             @test eltype(DiskMatrix(2)) == SMatrix{2,2,ComplexF64,4}
         end
 
+        @testset "EquivariantDiskMatrix" begin
+            E = EquivariantDiskMatrix()
+            J = @SMatrix [0 -1; 1 0] # rotation by π/2
+            @test eltype(E) == SMatrix{2,2,Float64,4}
+            @test E == EquivariantDiskMatrix{BigFloat}()
+            @test axes(E,2) == axes(DiskMatrix(0),2)
+            @test E[𝐱,Block(1)] == E[𝐱,1:2]
+            @test E[𝐱,Block(2)] == E[𝐱,3:6]
+            @test ClassicalOrthogonalPolynomials.orthogonalityweight(E)[𝐱] ≈ 1
+            @test EquivariantDiskMatrix{Float32}()[SVector(0.1f0,0.2f0),7] isa SMatrix{2,2,Float32,4}
+
+            @testset "definition" begin
+                τ = 2r^2-1
+                for k = 0:4
+                    @test E[𝐱,4k+1] ≈ jacobip(k,0,0,τ) * I
+                    @test E[𝐱,4k+2] ≈ jacobip(k,0,0,τ) * J
+                    @test E[𝐱,4k+3] ≈ jacobip(k,0,2,τ) * Σ
+                    @test E[𝐱,4k+4] ≈ jacobip(k,0,2,τ) * J * Σ
+                end
+            end
+
+            @testset "equivariant" begin
+                for k = 1:10
+                    @test E[ρ * 𝐱, k] ≈ ρ * E[𝐱, k] * ρ'
+                end
+            end
+
+            @testset "orthogonality" begin
+                M = [sum(tr(E[𝐲,k]'E[𝐲,j]) for 𝐲 in UnitDisk()) for k=1:10, j=1:10]
+                @test isapproxdiagonal(M)
+                @test all(>(0.001), diag(M))
+            end
+
+            @testset "conversion with DiskMatrix(0)" begin
+                Z = DiskMatrix(0)
+                R, Ri = E \ Z, Z \ E
+                @test axes(R) == axes(Ri) == (axes(Z,2), axes(Z,2))
+                @test iszero(R[Block(1,2)]) && iszero(R[Block(3,2)]) && iszero(Ri[Block(2,1)]) && iszero(Ri[Block(2,3)]) # block-diagonal
+                n = 22
+                for 𝐲 in (𝐱, SVector(-0.5,0.3), SVector(0.0,0.0))
+                    @test [sum(E[𝐲,i]*R[i,j] for i in 1:n) for j in 1:n] ≈ Z[𝐲,1:n]
+                    @test [sum(Z[𝐲,i]*Ri[i,j] for i in 1:n) for j in 1:n] ≈ E[𝐲,1:n]
+                end
+                @test R[1:n,1:n] * Ri[1:n,1:n] ≈ I
+                @test eltype(EquivariantDiskMatrix{BigFloat}() \ DiskMatrix{BigFloat}(0)) == Complex{BigFloat}
+                @test_throws ArgumentError E \ DiskMatrix(2)
+                @test_throws ArgumentError DiskMatrix(0, 1) \ E
+            end
+        end
+
         for λ = 0:2, m = -4:4
             P = DiskMatrix(m, λ)
             s = m ≥ 0 ? 1 : -1

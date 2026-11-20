@@ -338,6 +338,21 @@ using MultivariateOrthogonalPolynomials: ModalTrav, zernikegrid
         @testset "layout" begin
             @test [_diskmatrixdegree(r) for r in 1:10] == [0,0,2,2,2,2,4,4,4,4]
 
+            @testset "EquivariantDiskMatrix" begin
+                E = EquivariantDiskMatrix()
+                for 𝐱 in (SVector(0.3, -0.45), SVector(0.0, 0.0)), r in 1:20
+                    @test E[𝐱,r] ≈ C(𝐱,r)
+                end
+                # the transform gives the coefficients in EquivariantDiskMatrix()
+                P = DiskMatrixPlan(41)
+                g = P * [A(SVector(𝐱[1],𝐱[2])) for 𝐱 in zernikegrid(41)]
+                f = E * [g; zeros(∞)]
+                fz = DiskMatrix(0) * ((DiskMatrix(0) \ E) * [g; zeros(∞)])
+                for 𝐱 in (SVector(0.1,0.2), SVector(-0.5,0.3))
+                    @test f[𝐱] ≈ fz[𝐱] ≈ A(𝐱)
+                end
+            end
+
             @testset "the complex matrix Zernike polynomials of mode 0 are a recombination" begin
                 𝐱 = SVector(0.3, -0.45)
                 𝐲₊,𝐲₋ = SVector(1,im),SVector(1,-im)
