@@ -330,11 +330,15 @@ the same blocks, of degree `0, 2, 4, …`, so the conversions with `DiskMatrix(0
 struct EquivariantDiskMatrix{T} <: Basis{SMatrix{2,2,T,4}} end
 EquivariantDiskMatrix() = EquivariantDiskMatrix{Float64}()
 
-axes(::EquivariantDiskMatrix{T}) where {T} = (Inclusion(StaticUnitBall{RadialCoordinate{T}, :closed}()), BlockedOneTo(_diskmatrixblocklasts(0)))
+# allows promotion when transforming complex-valued functions
+AbstractQuasiArray{SMatrix{2,2,T,4}}(::EquivariantDiskMatrix) where T = EquivariantDiskMatrix{T}()
+AbstractQuasiMatrix{SMatrix{2,2,T,4}}(::EquivariantDiskMatrix) where T = EquivariantDiskMatrix{T}()
+
+axes(::EquivariantDiskMatrix{T}) where {T} = (Inclusion(StaticUnitBall{RadialCoordinate{real(T)}, :closed}()), BlockedOneTo(_diskmatrixblocklasts(0)))
 
 ==(::EquivariantDiskMatrix, ::EquivariantDiskMatrix) = true
 
-orthogonalityweight(::EquivariantDiskMatrix{T}) where {T} = DiskZernikeWeight{T}(0)
+orthogonalityweight(::EquivariantDiskMatrix{T}) where {T} = DiskZernikeWeight{real(T)}(0)
 
 function getindex(P::EquivariantDiskMatrix{T}, 𝐱::StaticVector{2}, r::Int) where T
     @boundscheck checkbounds(P, 𝐱, r)
