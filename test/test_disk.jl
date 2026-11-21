@@ -1,5 +1,6 @@
 using DeRhamOrthogonalPolynomials, ClassicalOrthogonalPolynomials, StaticArrays, BlockArrays, LinearAlgebra, HarmonicOrthogonalPolynomials, ArrayLayouts, Test
 using ContinuumArrays: basis
+using QuasiArrays: AbstractQuasiArray, AbstractQuasiMatrix
 
 function harmonicpart(f)
     c = transform(Laurent(), θ -> f[RadialCoordinate(1,θ)])
@@ -116,6 +117,7 @@ end
             @test E[𝐱,Block(2)] == E[𝐱,3:6]
             @test ClassicalOrthogonalPolynomials.orthogonalityweight(E)[𝐱] ≈ 1
             @test EquivariantDiskMatrix{Float32}()[SVector(0.1f0,0.2f0),7] isa SMatrix{2,2,Float32,4}
+            @test AbstractQuasiMatrix{SMatrix{2,2,ComplexF64,4}}(E) ≡ AbstractQuasiArray{SMatrix{2,2,ComplexF64,4}}(E) ≡ EquivariantDiskMatrix{ComplexF64}()
 
             @testset "definition" begin
                 τ = 2r^2-1

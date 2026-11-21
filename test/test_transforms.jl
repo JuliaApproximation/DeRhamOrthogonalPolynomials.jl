@@ -549,7 +549,8 @@ using ContinuumArrays: plan_grid_transform, plan_transform, grid
         @testset "exact for Block.(1:N): N=$N" for N in 1:6
             n = last(axes(E,2)[Block(N)])
             𝐠, P = plan_grid_transform(E, Block(N))
-            @test size(P) == (n,)
+            @test size(P) == (size(P,1),) == (n,)
+            @test size(P,2) == 1
             for r in 1:n
                 c = P * [E[𝐲,r] for 𝐲 in 𝐠]
                 @test c isa Vector{Float64}
