@@ -316,6 +316,76 @@ end
 getindex(P::DiskMatrix, 𝐱::StaticVector{2}, k::Int) = P[𝐱, findblockindex(axes(P,2), k)]
 
 
+"""
+    EquivariantDiskMatrix()
+
+is the real basis of equivariant matrix polynomials, i.e., `A[ρ*𝐱] == ρ * A[𝐱] * ρ'` for all rotations `ρ`, given by
+
+    P_k^{(0,0)}(2r^2-1) * I, P_k^{(0,0)}(2r^2-1) * ρ(π/2), P_k^{(0,2)}(2r^2-1) * Σ, P_k^{(0,2)}(2r^2-1) * ρ(π/2) * Σ
+
+for `k = 0, 1, …`, where `Σ = [x^2-y^2 2x*y; 2x*y y^2-x^2]`, so that the `r`-th element is the term with coefficient `g[r]`
+in `disk2diskmatrix`. It spans the same space as `DiskMatrix(0)`, is orthogonal wrt the Frobenius inner product, and has
+the same blocks, of degree `0, 2, 4, …`, so the conversions with `DiskMatrix(0)` are block-diagonal.
+"""
+struct EquivariantDiskMatrix{T} <: Basis{SMatrix{2,2,T,4}} end
+EquivariantDiskMatrix() = EquivariantDiskMatrix{Float64}()
+
+# allows promotion when transforming complex-valued functions
+AbstractQuasiArray{SMatrix{2,2,T,4}}(::EquivariantDiskMatrix) where T = EquivariantDiskMatrix{T}()
+AbstractQuasiMatrix{SMatrix{2,2,T,4}}(::EquivariantDiskMatrix) where T = EquivariantDiskMatrix{T}()
+
+axes(::EquivariantDiskMatrix{T}) where {T} = (Inclusion(StaticUnitBall{RadialCoordinate{real(T)}, :closed}()), BlockedOneTo(_diskmatrixblocklasts(0)))
+
+==(::EquivariantDiskMatrix, ::EquivariantDiskMatrix) = true
+
+orthogonalityweight(::EquivariantDiskMatrix{T}) where {T} = DiskZernikeWeight{real(T)}(0)
+
+function getindex(P::EquivariantDiskMatrix{T}, 𝐱::StaticVector{2}, r::Int) where T
+    @boundscheck checkbounds(P, 𝐱, r)
+    k, ν = divrem(r-1, 4)
+    x, y = 𝐱
+    τ = 2norm_sqr(𝐱)-1
+    u, v = x^2-y^2, 2x*y
+    S = promote_type(T, eltype(𝐱))
+    p = convert(S, jacobip(k, 0, 2(ν ≥ 2), τ))
+    if ν == 0
+        p * SMatrix{2,2,S}(1, 0, 0, 1)
+    elseif ν == 1
+        p * SMatrix{2,2,S}(0, 1, -1, 0) # ρ(π/2)
+    elseif ν == 2
+        p * SMatrix{2,2,S}(u, v, v, -u) # Σ
+    else
+        p * SMatrix{2,2,S}(-v, u, u, v) # ρ(π/2) * Σ
+    end
+end
+
+# With Σ + im*ρ(π/2)*Σ == conj(z)^2 * [1 im; im -1] and I ∓ im*ρ(π/2) == [1 ±im; ∓im 1] for z = x + im*y, the elements of
+# the first block of DiskMatrix(0) are E₁ - im*E₂, E₁ + im*E₂ and those of the j-th block, for E = EquivariantDiskMatrix(), are
+#   E₄ⱼ₋₅ + im*E₄ⱼ₋₄, E₄ⱼ₋₃ - im*E₄ⱼ₋₂, E₄ⱼ₋₃ + im*E₄ⱼ₋₂, E₄ⱼ₋₅ - im*E₄ⱼ₋₄
+function _equivariantdiskmatrixconversion(::Type{T}) where T
+    M₁ = Complex{T}[1 1; -im im]
+    M = Complex{T}[1 0 0 1; im 0 0 -im; 0 1 1 0; 0 -im im 0]
+    M₁, M
+end
+
+_checkdiskmatrixequivariant(Z::DiskMatrix) =
+    iszero(Z.m) && iszero(Z.λ) || throw(ArgumentError("conversion with EquivariantDiskMatrix requires DiskMatrix(0), got DiskMatrix($(Z.m), $(Z.λ))"))
+
+function \(E::EquivariantDiskMatrix, Z::DiskMatrix)
+    _checkdiskmatrixequivariant(Z)
+    T = real(eltype(eltype(promote_type(eltype(E), eltype(Z)))))
+    M₁, M = _equivariantdiskmatrixconversion(T)
+    mortar(Diagonal(Vcat([M₁], Fill(M, ∞))))
+end
+
+function \(Z::DiskMatrix, E::EquivariantDiskMatrix)
+    _checkdiskmatrixequivariant(Z)
+    T = real(eltype(eltype(promote_type(eltype(E), eltype(Z)))))
+    M₁, M = _equivariantdiskmatrixconversion(T)
+    mortar(Diagonal(Vcat([inv(M₁)], Fill(inv(M), ∞))))
+end
+
+
 
 
 

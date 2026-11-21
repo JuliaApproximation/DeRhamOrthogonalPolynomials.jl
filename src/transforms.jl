@@ -278,3 +278,34 @@ function *(P::DiskMatrixIPlan, g::AbstractVector)
     SMatrix{2,2}.(P.plan * pad(F₁₁, size(P.plan)...), P.plan * pad(F₂₁, size(P.plan)...),
                   P.plan * pad(F₁₂, size(P.plan)...), P.plan * pad(F₂₂, size(P.plan)...))
 end
+
+
+"""
+    EquivariantDiskMatrixPlan(P::DiskMatrixPlan, n)
+
+transforms from `zernikegrid(P.N)` to the first `n` coefficients in `EquivariantDiskMatrix()`, which are real for real data.
+"""
+struct EquivariantDiskMatrixPlan{T,PLAN}
+    plan::PLAN
+    n::Int
+end
+
+EquivariantDiskMatrixPlan{T}(P::DiskMatrixPlan, n::Int) where T = EquivariantDiskMatrixPlan{T,typeof(P)}(P, n)
+
+Base.eltype(::Type{<:EquivariantDiskMatrixPlan{T}}) where T = T
+Base.size(P::EquivariantDiskMatrixPlan) = (P.n,)
+Base.size(P::EquivariantDiskMatrixPlan, k::Integer) = k == 1 ? P.n : 1
+
+function *(P::EquivariantDiskMatrixPlan, F::AbstractMatrix{<:StaticMatrix{2,2}})
+    g = (P.plan * F)[1:P.n]
+    eltype(eltype(F)) <: Real ? real(g) : g
+end
+
+# Block(N) of EquivariantDiskMatrix() has degree 2N-2, which DiskMatrixPlan(2N-1) resolves exactly
+grid(E::EquivariantDiskMatrix{T}, N::Block{1}) where T = grid(Zernike{real(T)}(), Block(2Int(N)-1))
+grid(E::EquivariantDiskMatrix, n::Integer) = grid(E, findblock(axes(E,2), n))
+
+plan_transform(E::EquivariantDiskMatrix{T}, (N,)::Tuple{Block{1}}, dims=1) where T =
+    EquivariantDiskMatrixPlan{T}(DiskMatrixPlan{real(T)}(2Int(N)-1), last(axes(E,2)[N]))
+plan_transform(E::EquivariantDiskMatrix{T}, (n,)::Tuple{Int}, dims=1) where T =
+    EquivariantDiskMatrixPlan{T}(DiskMatrixPlan{real(T)}(2Int(findblock(axes(E,2), n))-1), n)

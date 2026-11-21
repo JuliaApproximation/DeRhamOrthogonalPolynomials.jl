@@ -2,6 +2,7 @@ using DeRhamOrthogonalPolynomials, MultivariateOrthogonalPolynomials, ClassicalO
 using DeRhamOrthogonalPolynomials: _complexzernikemode, _complexzernikecolumn, _diskvectordegree
 using DeRhamOrthogonalPolynomials: _diskmatrixdegree, _complexzernikecolumn, equivariantjacobimatrix
 using MultivariateOrthogonalPolynomials: ModalTrav, zernikegrid
+using ContinuumArrays: plan_grid_transform, plan_transform, grid
 
 @testset "transforms" begin
     @testset "DiskVector transform" begin
@@ -338,6 +339,21 @@ using MultivariateOrthogonalPolynomials: ModalTrav, zernikegrid
         @testset "layout" begin
             @test [_diskmatrixdegree(r) for r in 1:10] == [0,0,2,2,2,2,4,4,4,4]
 
+            @testset "EquivariantDiskMatrix" begin
+                E = EquivariantDiskMatrix()
+                for 𝐱 in (SVector(0.3, -0.45), SVector(0.0, 0.0)), r in 1:20
+                    @test E[𝐱,r] ≈ C(𝐱,r)
+                end
+                # the transform gives the coefficients in EquivariantDiskMatrix()
+                P = DiskMatrixPlan(41)
+                g = P * [A(SVector(𝐱[1],𝐱[2])) for 𝐱 in zernikegrid(41)]
+                f = E * [g; zeros(∞)]
+                fz = DiskMatrix(0) * ((DiskMatrix(0) \ E) * [g; zeros(∞)])
+                for 𝐱 in (SVector(0.1,0.2), SVector(-0.5,0.3))
+                    @test f[𝐱] ≈ fz[𝐱] ≈ A(𝐱)
+                end
+            end
+
             @testset "the complex matrix Zernike polynomials of mode 0 are a recombination" begin
                 𝐱 = SVector(0.3, -0.45)
                 𝐲₊,𝐲₋ = SVector(1,im),SVector(1,-im)
@@ -514,6 +530,63 @@ using MultivariateOrthogonalPolynomials: ModalTrav, zernikegrid
             𝐀 = A.(zernikegrid(M+1))
             @test P * 𝐀 ≈ g
             @test inv(P) * g ≈ 𝐀
+        end
+    end
+
+    @testset "EquivariantDiskMatrix transform" begin
+        E = EquivariantDiskMatrix()
+        ρ = θ -> @SMatrix [cos(θ) -sin(θ); sin(θ) cos(θ)]
+        Σ = 𝐱 -> @SMatrix [𝐱[1]^2-𝐱[2]^2 2𝐱[1]*𝐱[2]; 2𝐱[1]*𝐱[2] 𝐱[2]^2-𝐱[1]^2]
+        A = 𝐱 -> (t = norm(𝐱)^2; (exp(t) + 2)*I + cos(3t)*ρ(π/2) + (sin(2t) + 1)*Σ(𝐱) + 1/(2+t)*ρ(π/2)*Σ(𝐱))
+        𝐱 = SVector(0.3, -0.45)
+
+        @testset "grid" begin
+            @test grid(E, Block(5)) == zernikegrid(9)
+            @test grid(E, 15) == grid(E, 18) == grid(E, Block(5))
+            @test grid(EquivariantDiskMatrix{Float32}(), Block(3)) == zernikegrid(Float32, 5)
+        end
+
+        @testset "exact for Block.(1:N): N=$N" for N in 1:6
+            n = last(axes(E,2)[Block(N)])
+            𝐠, P = plan_grid_transform(E, Block(N))
+            @test size(P) == (size(P,1),) == (n,)
+            @test size(P,2) == 1
+            for r in 1:n
+                c = P * [E[𝐲,r] for 𝐲 in 𝐠]
+                @test c isa Vector{Float64}
+                @test c ≈ [zeros(r-1); 1; zeros(n-r)] atol=1e-12
+            end
+        end
+
+        @testset "agrees with DiskMatrixPlan" begin
+            g = DiskMatrixPlan(41) * [A(SVector(𝐲[1],𝐲[2])) for 𝐲 in zernikegrid(41)]
+            @test plan_transform(E, Block(21)) * A.(grid(E, Block(21))) ≈ real(g[1:82])
+            @test plan_transform(E, 80) * A.(grid(E, 80)) ≈ real(g[1:80])
+        end
+
+        @testset "complex data" begin
+            P = plan_transform(E, Block(10))
+            𝐀 = A.(grid(E, Block(10)))
+            @test P * (im*𝐀) isa Vector{ComplexF64}
+            @test P * (im*𝐀) ≈ im*(P * 𝐀)
+        end
+
+        @testset "ldiv, transform and expand" begin
+            c = E \ A.(axes(E,1))
+            @test eltype(c) == Float64
+            @test (E * c)[𝐱] ≈ A(𝐱)
+            @test transform(E, A)[1:30] ≈ c[1:30]
+            @test expand(E, A)[𝐱] ≈ A(𝐱)
+            @test E[:, 1:30] \ A.(axes(E,1)) == E[:, Block.(1:8)] \ A.(axes(E,1))
+            @test E[:, Block.(1:20)] \ A.(axes(E,1)) ≈ c[1:78]
+            # complex-valued functions promote the basis
+            c̃ = E \ (𝐲 -> im*A(𝐲)).(axes(E,1))
+            @test eltype(c̃) == ComplexF64
+            @test c̃[1:30] ≈ im*c[1:30]
+            # polynomials are recovered exactly
+            c₀ = [cos(r) for r in 1:18]
+            p = 𝐲 -> sum(E[𝐲,r]*c₀[r] for r in 1:18)
+            @test E \ p.(axes(E,1)) ≈ [c₀; zeros(∞)]
         end
     end
 end
