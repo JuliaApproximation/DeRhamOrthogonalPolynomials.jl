@@ -167,20 +167,19 @@ inv(P::DiskVectorPlan{T}) where T =
 inv(P::DiskVectorIPlan{T}) where T = DiskVectorPlan{T}(P.plan.N, P.𝐚; weighted=P.weighted)
 
 function *(P::DiskVectorIPlan, G::AbstractMatrix)
-    if !isnothing(P.R)
-        # convert the columns to DiskVector(m, (a,a)), dropping the coefficients of degree above 2Ñ-2
-        Ñ = P.plan.N ÷ 2 + 1
-        𝐰 = P.weighted ? P.𝐚 : (0,0)
-        G₀ = zeros(complex(eltype(G)), 2Ñ, 4Ñ-1)
-        for j in axes(G,2), r in axes(G,1)
-            _diskvectordegree(_complexzernikemode(j), r, 𝐰) ≤ 2Ñ-2 && (G₀[r,j] = G[r,j])
-        end
+    # the coefficients of degree at most 2Ñ-2, in the 2Ñ × (4Ñ-1) layout of the plan
+    Ñ = P.plan.N ÷ 2 + 1
+    𝐰 = P.weighted ? P.𝐚 : (0,0)
+    G₀ = zeros(complex(eltype(G)), 2Ñ, 4Ñ-1)
+    for j in axes(G,2), r in axes(G,1)
+        _diskvectordegree(_complexzernikemode(j), r, 𝐰) ≤ 2Ñ-2 && (G₀[r,j] = G[r,j])
+    end
+    if !isnothing(P.R) # convert the columns to DiskVector(m, (a,a))
         for j in axes(G₀,2)
             G₀[:,j] = P.R[j] * G₀[:,j]
         end
-        G = G₀
     end
-    F₁,F₂ = diskvector2disk(G)
+    F₁,F₂ = diskvector2disk(G₀)
     SVector.(P.plan * F₁, P.plan * F₂)
 end
 

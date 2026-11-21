@@ -157,6 +157,12 @@ using ContinuumArrays: plan_grid_transform, plan_transform, grid
             G_high = zeros(ComplexF64, 2Ñ, 4Ñ-1)
             G_high[2, end] = 1 # type-2 element of degree 2Ñ in mode 2Ñ-1, which is ignored
             @test Pⁱ * (G + G_high) ≈ 𝐅
+            # the inverse of a larger plan accepts these coefficients
+            𝐅₄₁ = inv(P₄₁) * G
+            for (k, j) in ((1,1), (5,40), (21,81))
+                𝐱 = zernikegrid(41)[k,j]
+                @test 𝐅₄₁[k,j] ≈ sum(sum(DiskVector(_complexzernikemode(c), 𝐚)[𝐱, 1:2Ñ] .* G[:,c]) for c in axes(G,2))
+            end
         end
 
         @testset "weighted DiskVectorPlan recovers every weighted field: 𝐚=$𝐚, N=$N" for 𝐚 in ((0,1), (1,0), (1,1)), N in (7, 8)
