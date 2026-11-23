@@ -12,14 +12,14 @@ import ClassicalOrthogonalPolynomials: orthogonalityweight, Weight, jacobimatrix
 using BandedMatrices: _BandedMatrix
 using InfiniteArrays: OneToInf
 using BlockBandedMatrices: _BandedBlockBandedMatrix
-import ContinuumArrays: @simplify, ExpansionLayout, grid, AffineMap
+import ContinuumArrays: @simplify, ExpansionLayout, grid, AffineMap, plan_transform
 using LazyArrays: ApplyLayout, arguments
 using LazyBandedMatrices: _blockinterlace_axes, BlockBroadcastVector
 using LinearAlgebra: norm_sqr
 using HarmonicOrthogonalPolynomials: sphericalharmonicnormalization
 using FillArrays: OffDiagonal
 
-export DiskVector, DiskMatrix, DiskVectorPlan, DiskVectorIPlan, disk2diskvector, diskvector2disk, ComplexZernikeITransform, DiskZernikeWeight, DiskVectorWeight, grad, curl, divergence, rotgrad,
+export DiskVector, DiskMatrix, EquivariantDiskMatrix, DiskVectorPlan, DiskVectorIPlan, disk2diskvector, diskvector2disk, ComplexZernikeITransform, DiskZernikeWeight, DiskVectorWeight, grad, curl, divergence, rotgrad,
             DiskBasis, DiskCurlFree, DiskWeightedCurlFree, DiskCoWeightedCurlFree
 export DiskMatrixPlan, DiskMatrixIPlan, disk2diskmatrix, diskmatrix2disk, equivariantmultiplication
 export VectorJacobi, vectorjacobip, VectorJacobiWeight, UnitDisk
