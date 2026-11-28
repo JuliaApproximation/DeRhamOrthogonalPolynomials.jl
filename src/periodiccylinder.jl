@@ -53,6 +53,12 @@ end
 diskbasis(P::PeriodicCylinderBasis) = P.disk
 Base.unsafe_getindex(P::PeriodicCylinderBasis{T}, (x,y,z)::SVector{3}, j::Int) where T = exp(im*P.k*z) * diskbasis(P)[SVector(x,y), j]
 
+# evaluates the disk basis together, eg, P[𝐱, 1:n] costs O(n) for DiskBasis
+function getindex(P::PeriodicCylinderBasis, (x,y,z)::SVector{3}, jr::AbstractVector{Int})
+    @boundscheck checkbounds(P, SVector(x,y,z), jr)
+    exp(im*P.k*z) * diskbasis(P)[SVector(x,y), jr]
+end
+
 
 grammatrix(P::PeriodicCylinderBasis{T}) where T = 2convert(T,π) * grammatrix(diskbasis(P))
 grammatrix(W::Weighted{<:Any, <:PeriodicCylinderBasis{T}}) where T = 2convert(T,π) * grammatrix(Weighted(diskbasis(W.P)))

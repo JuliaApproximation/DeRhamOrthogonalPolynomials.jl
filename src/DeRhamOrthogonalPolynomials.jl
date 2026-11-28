@@ -2,7 +2,7 @@ module DeRhamOrthogonalPolynomials
 
 using ClassicalOrthogonalPolynomials, QuasiArrays, LinearAlgebra, StaticArrays, BlockArrays, HarmonicOrthogonalPolynomials, MultivariateOrthogonalPolynomials, LazyArrays, FillArrays, LazyBandedMatrices, InfiniteArrays, BlockBandedMatrices, ContinuumArrays, DomainSets, Infinities, ArrayLayouts
 using MultivariateOrthogonalPolynomials: ModalTrav, ComplexZernikeITransform, ComplexZernikeTransform
-using ClassicalOrthogonalPolynomials: Clenshaw, recurrencecoefficients
+using ClassicalOrthogonalPolynomials: Clenshaw, recurrencecoefficients, polynomialtype
 using LazyArrays: paddeddata
 
 

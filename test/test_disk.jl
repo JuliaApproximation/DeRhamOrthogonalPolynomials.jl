@@ -30,6 +30,17 @@ end
             @test ComplexZernike()[𝐱,getindex.(Block.(2:2:10),1)] ≈ DiskBasis(-1)[𝐱,1:5]
             @test ComplexZernike()[𝐱,getindex.(Block.(2:2:10),2)] ≈ DiskBasis(1)[𝐱,1:5]
         end
+
+        @testset "evaluating several entries" begin
+            for m in (-3, 0, 2), a in (-1, 0, 2), 𝐱 in (SVector(0.1,0.2), SVector(0.0,0.0), SVector(0.6,-0.8))
+                P = DiskBasis(m, a)
+                @test P[𝐱,1:20] ≈ [P[𝐱,j] for j in 1:20]
+                @test P[𝐱,[3,1,7]] ≈ [P[𝐱,j] for j in (3,1,7)]
+            end
+            @test DiskBasis(1)[SVector(0.1,0.2),1:5] isa Vector{ComplexF64}
+            @test_throws BoundsError DiskBasis(1)[SVector(1.0,1.0),1:5]
+            @test_throws BoundsError DiskBasis(1)[SVector(0.1,0.2),0:5]
+        end
     end
 
     @testset "bubbles" begin

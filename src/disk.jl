@@ -107,6 +107,17 @@ function zernike(m, j::Int, λ, 𝐱::StaticVector{2})
 end
 
 Base.unsafe_getindex(P::DiskBasis, 𝐱::StaticVector{2}, j::Int) = zernike(P.m, j-1, P.a, 𝐱)
+
+# evaluates the radial parts together with the forward recurrence of the Jacobi polynomials,
+# so that P[𝐱, 1:n] costs O(n) operations, instead of O(n) for each of the n entries
+function getindex(P::DiskBasis, 𝐱::StaticVector{2}, jr::AbstractVector{Int})
+    @boundscheck checkbounds(P, 𝐱, jr)
+    z = 2norm_sqr(𝐱)-1
+    J = Jacobi{polynomialtype(typeof(P.a), typeof(z))}(P.a, abs(P.m)) # the same Jacobi polynomials as jacobip in zernike
+    # the bounds are checked so we call the forward recurrence directly, which avoids an overhead for short ranges
+    v = Base.unsafe_getindex(J, z, OneTo(maximum(jr; init=0)))
+    harmonicpolynomial(P.m, 𝐱) * (jr == axes(v,1) ? v : v[jr])
+end
 function grammatrix(P::DiskBasis{T}) where T
     if P.a == 0
         # unitblocks(convert(T,π) * weightedgrammatrix(Jacobi{T}(0, abs(P.m)))/convert(T,2)^(abs(P.m)+1))

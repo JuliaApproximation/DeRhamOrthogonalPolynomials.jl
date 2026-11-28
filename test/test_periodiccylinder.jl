@@ -10,7 +10,9 @@ using ContinuumArrays: basis, coefficients
             Q = PeriodicCylinderBasis(m, ω, 1)
             W = Weighted(Q)
 
-            @test P[𝐱, 1:5] ≈ DiskBasis(m)[SVector(x,y),1:5] * exp(im*ω*z)
+            @test P[𝐱, 1:5] ≈ DiskBasis(m)[SVector(x,y),1:5] * exp(im*ω*z) ≈ [P[𝐱, j] for j in 1:5]
+            @test Q[𝐱, 2:20] ≈ [Q[𝐱, j] for j in 2:20]
+            @test_throws BoundsError P[SVector(1.0,1.0,0.0), 1:5]
             @test W[𝐱, 1:5] ≈ Weighted(DiskBasis(m,1))[SVector(x,y),1:5] * exp(im*ω*z)
             @test (P\W)[1:11,1:10]' * P[𝐱,1:11] ≈ W[𝐱,1:10]
             @test (Q\P)[1:11,1:10]' * Q[𝐱,1:11] ≈ P[𝐱,1:10]
