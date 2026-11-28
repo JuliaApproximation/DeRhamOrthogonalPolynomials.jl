@@ -114,9 +114,7 @@ function getindex(P::DiskBasis, 𝐱::StaticVector{2}, jr::AbstractVector{Int})
     @boundscheck checkbounds(P, 𝐱, jr)
     z = 2norm_sqr(𝐱)-1
     J = Jacobi{polynomialtype(typeof(P.a), typeof(z))}(P.a, abs(P.m)) # the same Jacobi polynomials as jacobip in zernike
-    # the bounds are checked so we call the forward recurrence directly, which avoids an overhead for short ranges
-    v = Base.unsafe_getindex(J, z, OneTo(maximum(jr; init=0)))
-    harmonicpolynomial(P.m, 𝐱) * (jr == axes(v,1) ? v : v[jr])
+    harmonicpolynomial(P.m, 𝐱) *  Base.unsafe_getindex(J, z, jr)
 end
 function grammatrix(P::DiskBasis{T}) where T
     if P.a == 0
